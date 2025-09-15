@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 
 const VISITOR_COOKIE = "merchlab_visitor";
 
-export function getOrCreateVisitor(): string {
-  const store = cookies();
+export async function getOrCreateVisitor(): Promise<string> {
+  const store = await cookies();
   const existing = store.get(VISITOR_COOKIE)?.value;
   if (existing) return existing;
   const id = crypto.randomUUID();
@@ -17,8 +17,9 @@ export function getOrCreateVisitor(): string {
   return id;
 }
 
-export function readVisitor(): string | undefined {
-  return cookies().get(VISITOR_COOKIE)?.value;
+export async function readVisitor(): Promise<string | undefined> {
+  const store = await cookies();
+  return store.get(VISITOR_COOKIE)?.value;
 }
 
 
