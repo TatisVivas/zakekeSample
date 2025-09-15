@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { getClientToken, getDesignInfo } from "@/lib/zakeke";
 
-export async function GET(req: NextRequest, { params }: { params: { designId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ designId: string }> }) {
   try {
+    const { designId } = await params;
     const { access_token } = await getClientToken({ accessType: "S2S" });
-    const info = await getDesignInfo(params.designId, access_token);
+    const info = await getDesignInfo(designId, access_token);
     return Response.json(info);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to fetch design";

@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { getClientToken, getPrintZip } from "@/lib/zakeke";
 
-export async function GET(req: NextRequest, { params }: { params: { designId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ designId: string }> }) {
   try {
+    const { designId } = await params;
     const { access_token } = await getClientToken({ accessType: "S2S" });
-    const res = (await getPrintZip(params.designId, access_token)) as unknown;
+    const res = (await getPrintZip(designId, access_token)) as unknown;
     // If real API returns a binary or different shape, map to { url }
     const url = typeof res === "string"
       ? res
