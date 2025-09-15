@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
       customercode: body.customercode,
     });
     return Response.json(token);
-  } catch (e: any) {
-    const msg = e?.message || "Failed to get token";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Failed to get token";
     const status = /401/.test(msg) ? 401 : 500;
     return new Response(msg, { status });
   }

@@ -5,7 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 declare global {
   interface Window {
-    ZakekeDesigner: any;
+    ZakekeDesigner?: new () => {
+      createIframe: (cfg: unknown, container?: HTMLElement | null) => void;
+    };
   }
 }
 
@@ -31,8 +33,7 @@ export default function CustomizerPage() {
     async function init() {
       try {
         // Get OAuth token from server without exposing secret
-        const tokenRes = await fetch(`/api/
-          zakeke/token`, {
+        const tokenRes = await fetch(`/api/zakeke/token`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ accessType: "S2S" }),
@@ -41,7 +42,7 @@ export default function CustomizerPage() {
         const token = await tokenRes.json();
 
         // Load script if not already loaded
-        if (!(window as any).ZakekeDesigner) {
+        if (!window.ZakekeDesigner) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
             script.src = "https://portal.zakeke.com/scripts/integration/apiV2/customizer.js";
@@ -53,7 +54,7 @@ export default function CustomizerPage() {
         }
 
         if (destroyed) return;
-        const designer = new (window as any).ZakekeDesigner();
+        const designer = new (window as Window & typeof globalThis).ZakekeDesigner!();
         const cfg = {
           tokenOauth: token.access_token,
           productId: configBase.productId,
@@ -63,12 +64,12 @@ export default function CustomizerPage() {
           quantity: quantity,
           designId: designId,
           // Callbacks required
-          getProductInfo: async () => {
+          getProductInfo: async (): Promise<{ price: number; isOutOfStock: boolean }> => {
             // Basic info for pricing/stock
             // If you need real-time price, fetch from your server
             return { price: 45000, isOutOfStock: false };
           },
-          addToCart: async (payload: any) => {
+          addToCart: async (payload: { quantity?: number; designid?: string; designId?: string }) => {
             // payload may contain: designid, quantity, selectedattributes, etc.
             const res = await fetch("/api/cart", {
               method: "POST",
@@ -81,7 +82,7 @@ export default function CustomizerPage() {
             }
             router.push("/cart");
           },
-          editAddToCart: async (payload: any) => {
+          editAddToCart: async (payload: { quantity?: number; designid?: string; designId?: string }) => {
             // For simplicity, upsert by SKU
             const res = await fetch("/api/cart", {
               method: "PUT",
@@ -98,9 +99,10 @@ export default function CustomizerPage() {
 
         designer.createIframe(cfg, containerRef.current);
         setLoading(false);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(e);
-        setError(e?.message || "Error inicializando el customizer");
+        const msg = e instanceof Error ? e.message : "Error inicializando el customizer";
+        setError(msg);
         setLoading(false);
       }
     }

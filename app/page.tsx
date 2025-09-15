@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getProducts } from "@/lib/db";
 
 export default function Home() {
@@ -9,7 +10,7 @@ export default function Home() {
       <h1 className="text-2xl font-semibold mb-6">Catálogo</h1>
       {p && (
         <div className="border rounded p-4 flex gap-4 items-center">
-          <img src={p.imageUrl || "/totebag-sample.jpg"} alt={p.name} width={120} height={120} />
+          <Image src={p.imageUrl || "/totebag-sample.jpg"} alt={p.name} width={120} height={120} />
           <div className="flex-1">
             <h2 className="text-lg font-medium">{p.name}</h2>
             <p className="text-sm opacity-80">{p.code}</p>

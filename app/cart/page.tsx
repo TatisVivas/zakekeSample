@@ -1,12 +1,19 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getCartItems, getProductByCode } from "@/lib/db";
 import { getClientToken, getDesignInfo } from "@/lib/zakeke";
 
-async function getDesign(designId: string) {
+type DesignInfo = {
+  designUnitPrice?: number;
+  tempPreviewImageUrl?: string | null;
+  previewFiles?: { url?: string | null }[];
+} | null;
+
+async function getDesign(designId: string): Promise<DesignInfo> {
   try {
     const { access_token } = await getClientToken({ accessType: "S2S" });
     const info = await getDesignInfo(designId, access_token);
-    return info as any;
+    return info as DesignInfo;
   } catch {
     return null;
   }
@@ -34,7 +41,7 @@ export default async function CartPage() {
         {data.map(({ it, product, preview, total, basePrice, designUnitPrice }) => (
           <div key={it.id} className="border rounded p-4 flex gap-4 items-center">
             {preview ? (
-              <img src={preview} alt="Preview" width={120} height={120} />
+              <Image src={preview} alt="Preview" width={120} height={120} />
             ) : (
               <div className="w-[120px] h-[120px] bg-gray-100 flex items-center justify-center">Sin preview</div>
             )}
