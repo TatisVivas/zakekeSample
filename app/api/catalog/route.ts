@@ -24,7 +24,14 @@ export async function GET(req: NextRequest) {
   }));
 
   // Zakeke espera un array simple de productos
-  return Response.json(items, { status: 200 });
+  // Asegurar que el código sea numérico como requiere Zakeke
+  const zakekeItems = items.map(item => ({
+    code: item.code, // Ya es "1001" que es numérico
+    name: item.name,
+    thumbnail: item.thumbnail
+  }));
+  
+  return Response.json(zakekeItems, { status: 200 });
 }
 
 

@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { getProductByCode } from "@/lib/db";
 import { requireBasicAuth } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
+export async function GET(req: NextRequest, { params }: { params: { code: string } }) {
+  const { code } = params;
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
 
