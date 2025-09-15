@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 declare global {
@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-export default function CustomizerPage() {
+function CustomizerContent() {
   const search = useSearchParams();
   const router = useRouter();
   const productId = search.get("productid") || "TOTEBAG-001"; // Adjust if needed
@@ -119,6 +119,14 @@ export default function CustomizerPage() {
       {error && <p className="text-red-600">{error}</p>}
       <div id="zakeke-container" ref={containerRef} style={{ width: "100%", minHeight: 600, border: "1px solid #ddd" }} />
     </main>
+  );
+}
+
+export default function CustomizerPage() {
+  return (
+    <Suspense fallback={<main className="p-4"><p>Cargando...</p></main>}>
+      <CustomizerContent />
+    </Suspense>
   );
 }
 
