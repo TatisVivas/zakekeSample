@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js App Router + Zakeke Minimal Sample
 
-## Getting Started
+Minimal Next.js 14 (App Router) + TypeScript implementing a single product, embedded Zakeke Customizer, basic cart, and proxy APIs.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1) Crea `.env.local` (no se versiona). Usa tus valores reales:
+
+```
+ZAKEKE_CLIENT_ID=TU_CLIENT_ID
+ZAKEKE_CLIENT_SECRET=TU_CLIENT_SECRET
+DEFAULT_CURRENCY=COP
+DEFAULT_CULTURE=es-ES
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2) Install and run:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+npm i
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Functional flow
 
-## Learn More
+- `/` muestra el producto y link a `/product/TOTEBAG-001`.
+- En producto, botón “Personalizar” abre `/customizer?productid=TOTEBAG-001&quantity=1`.
+- Customizer usa token del servidor. Callbacks `getProductInfo`, `addToCart`, `editAddToCart` activos.
+- `/cart` muestra preview, totales simples y “Editar diseño”.
 
-To learn more about Next.js, take a look at the following resources:
+## API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `GET /api/products`, `POST /api/products` (in-memory)
+- Catalog API (Basic Auth: user=`ZAKEKE_CLIENT_ID`, pass=`ZAKEKE_CLIENT_SECRET`):
+  - `GET /api/catalog?page=&search=`
+  - `GET /api/catalog/:code/options`
+  - `POST /api/catalog/:code/customizer`
+  - `DELETE /api/catalog/:code/customizer`
+- Zakeke proxy (server-side):
+  - `POST /api/zakeke/token`
+  - `GET /api/zakeke/designs/:designId`
+  - `POST /api/zakeke/register-order`
+  - `GET /api/zakeke/print-files/:designId`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Security: el secret nunca se expone al cliente; requests a `api.zakeke.com` desde el servidor. El archivo `.env.local` ya está ignorado por `.gitignore`.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
