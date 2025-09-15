@@ -10,7 +10,7 @@ export default function ProductPage({ params }: { params: { code: string } }) {
   return (
     <main className="p-8 max-w-3xl mx-auto">
       <div className="flex gap-6">
-        <Image src={product.imageUrl || "/totebag-sample.jpg"} alt={product.name} width={300} height={300} />
+        <Image src={product.imageUrl || "/totebag-sample.png"} alt={product.name} width={300} height={300} />
         <div>
           <h1 className="text-2xl font-semibold">{product.name}</h1>
           <p className="opacity-80 mt-1">{product.code}</p>

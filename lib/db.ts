@@ -23,7 +23,7 @@ let products: Product[] = [
     code: "1001",
     name: "Tote Bag Blanca",
     description: "Tote bag de algodón lista para personalizar.",
-    imageUrl: "/totebag-sample.jpg",
+    imageUrl: "/totebag-sample.png",
     basePrice: 45000, // COP example price
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true, // can be toggled via catalog API

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         ? (p.imageUrl.startsWith("http")
             ? p.imageUrl
             : `${origin}${p.imageUrl.startsWith("/") ? "" : "/"}${p.imageUrl}`)
-        : `${origin}/totebag-sample.jpg`,
+        : `${origin}/totebag-sample.png`,
   }));
 
   // Zakeke espera un array simple de productos
