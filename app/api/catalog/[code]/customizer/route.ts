@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
   const product = getProductByCode(code);
   if (!product) return new Response("Not found", { status: 404 });
   const updated = setProductCustomizable(code, true);
-  return Response.json(updated);
+  return new Response(null, { status: 200 });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -19,7 +19,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   const product = getProductByCode(code);
   if (!product) return new Response("Not found", { status: 404 });
   const updated = setProductCustomizable(code, false);
-  return Response.json(updated);
+  return new Response(null, { status: 200 });
 }
 
 

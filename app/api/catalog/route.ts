@@ -10,7 +10,21 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get("page") || "1");
   const search = searchParams.get("search") || undefined;
   const data = getProducts(page, 20, search);
-  return Response.json(data);
+
+  const origin = new URL(req.url).origin;
+  const items = data.items.map((p) => ({
+    code: p.code,
+    name: p.name,
+    thumbnail:
+      p.imageUrl
+        ? (p.imageUrl.startsWith("http")
+            ? p.imageUrl
+            : `${origin}${p.imageUrl.startsWith("/") ? "" : "/"}${p.imageUrl}`)
+        : `${origin}/totebag-sample.jpg`,
+  }));
+
+  // Zakeke espera un array simple de productos
+  return Response.json(items, { status: 200 });
 }
 
 

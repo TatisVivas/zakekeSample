@@ -20,7 +20,7 @@ export type CartItem = {
 
 let products: Product[] = [
   {
-    code: "TOTEBAG-001",
+    code: "1001",
     name: "Tote Bag Blanca",
     description: "Tote bag de algodón lista para personalizar.",
     imageUrl: "/totebag-sample.jpg",
