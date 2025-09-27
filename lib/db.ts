@@ -10,7 +10,8 @@ export type Product = {
   imageUrl?: string;
   basePrice: number; // base price in minor units or float for simplicity
   currency: string;
-  customizable: boolean;
+  customizable: boolean; // Visual Product Customizer
+  configurable?: boolean; // 3D Product Configurator
 };
 
 export type CartItem = {
@@ -47,6 +48,7 @@ let products: Product[] = [
     basePrice: 45000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
+    configurable: false,
   },
   {
     code: "1002",
@@ -56,6 +58,7 @@ let products: Product[] = [
     basePrice: 48000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: false,
+    configurable: false,
   },
   {
     code: "1003",
@@ -65,6 +68,27 @@ let products: Product[] = [
     basePrice: 35000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: false,
+    configurable: false,
+  },
+  {
+    code: "1004",
+    name: "Camiseta Unisex Negra",
+    description: "Camiseta negra para personalización.",
+    imageUrl: "/totebag-sample.jpg",
+    basePrice: 38000,
+    currency: process.env.DEFAULT_CURRENCY || "COP",
+    customizable: false,
+    configurable: false,
+  },
+  {
+    code: "1005",
+    name: "Gorra Snapback",
+    description: "Gorra para bordado o impresión.",
+    imageUrl: "/totebag-sample.png",
+    basePrice: 32000,
+    currency: process.env.DEFAULT_CURRENCY || "COP",
+    customizable: false,
+    configurable: false,
   },
 ];
 
@@ -128,6 +152,46 @@ const productOptionsByCode: Record<string, ProductOption[]> = {
       ],
     },
   ],
+
+  // 1004: Camiseta Unisex Negra - options: Talla, Color
+  "1004": [
+    {
+      code: "40",
+      name: "Talla",
+      values: [
+        { code: "401", name: "S" },
+        { code: "402", name: "M" },
+        { code: "403", name: "L" },
+        { code: "404", name: "XL" },
+      ],
+    },
+    {
+      code: "41",
+      name: "Color",
+      values: [
+        { code: "411", name: "Negro" },
+        { code: "412", name: "Azul Marino" },
+      ],
+    },
+  ],
+
+  // 1005: Gorra - options: Color, Talla única
+  "1005": [
+    {
+      code: "50",
+      name: "Color",
+      values: [
+        { code: "501", name: "Negro" },
+        { code: "502", name: "Rojo" },
+        { code: "503", name: "Verde" },
+      ],
+    },
+    {
+      code: "51",
+      name: "Talla",
+      values: [{ code: "511", name: "Única" }],
+    },
+  ],
 };
 
 let cartItems: CartItem[] = [];
@@ -168,10 +232,11 @@ export function upsertProduct(product: Partial<Product> & { code: string }) {
     basePrice: product.basePrice ?? 0,
     currency: product.currency || process.env.DEFAULT_CURRENCY || "COP",
     customizable: product.customizable ?? false,
+    configurable: product.configurable ?? false,
     description: product.description,
     imageUrl: product.imageUrl,
   };
-    products.push(created);
+  products.push(created);
   return created;
 }
 
@@ -179,6 +244,13 @@ export function setProductCustomizable(code: string, customizable: boolean) {
   const p = getProductByCode(code);
   if (!p) return undefined;
   p.customizable = customizable;
+  return p;
+}
+
+export function setProductConfigurable(code: string, configurable: boolean) {
+  const p = getProductByCode(code);
+  if (!p) return undefined;
+  p.configurable = configurable;
   return p;
 }
 

@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 import { getProductByCode, getProductOptionsByCode } from "@/lib/db";
 import { requireBasicAuth } from "@/lib/auth";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest, context: { params: Promise<{ code: string }> }) {
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
@@ -10,10 +13,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ code: s
   const product = getProductByCode(code);
   if (!product) return new Response("Not found", { status: 404 });
 
-  // Return product options in Zakeke expected format:
-  // [
-  //   { code: "34523", name: "Color", values: [ { code: "537564567", name: "White" }, ... ] }
-  // ]
+  // Return product options in Zakeke expected format
   const options = getProductOptionsByCode(code);
   return Response.json(options, { status: 200 });
 }
