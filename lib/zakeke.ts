@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer";
+
 type TokenResponse = {
   access_token: string;
   expires_in: number;
@@ -5,13 +7,28 @@ type TokenResponse = {
 };
 
 async function fetchWithHandling(url: string, options: RequestInit) {
+  const method = (options.method || "GET").toUpperCase();
+  const started = Date.now();
   const res = await fetch(url, options);
+  const elapsed = Date.now() - started;
+
+  const contentType = res.headers.get("content-type") || "";
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    let text = "";
+    try {
+      text = await res.text();
+    } catch {
+      text = "";
+    }
+    console.error(
+      `[ZAKEKE][HTTP] ${method} ${url} -> ${res.status} in ${elapsed}ms`,
+      text ? `body(${Math.min(text.length, 800)} chars)` : "(no body)"
+    );
     const status = res.status;
     throw new Error(`Zakeke API error ${status}: ${text || res.statusText}`);
   }
-  const contentType = res.headers.get("content-type") || "";
+
+  console.log(`[ZAKEKE][HTTP] ${method} ${url} -> ${res.status} in ${elapsed}ms`);
   if (contentType.includes("application/json")) return res.json();
   return res.text();
 }
@@ -25,23 +42,32 @@ export async function getClientToken(args: {
 }) {
   const clientId = process.env.ZAKEKE_CLIENT_ID;
   const clientSecret = process.env.ZAKEKE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error("Missing ZAKEKE client credentials");
 
-  const body = new URLSearchParams();
-  body.set("grant_type", "client_credentials");
-  if (args.accessType) body.set("access_type", args.accessType);
-  if (args.visitorcode) body.set("visitorcode", args.visitorcode);
-  if (args.customercode) body.set("customercode", args.customercode);
+  const hasClientId = Boolean(clientId);
+  const hasClientSecret = Boolean(clientSecret);
+
+  console.log(
+    "[ZAKEKE][TOKEN] building request",
+    JSON.stringify({
+      accessType: args?.accessType || "C2S",
+      hasVisitor: Boolean(args?.visitorcode),
+      hasCustomer: Boolean(args?.customercode),
+      env: { hasClientId, hasClientSecret },
+      tokenUrl: TOKEN_URL,
+    })
+  );
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Missing ZAKEKE client credentials");
+  }
+
+  const baseBody = new URLSearchParams();
+  baseBody.set("grant_type", "client_credentials");
+  if (args.accessType) baseBody.set("access_type", args.accessType);
+  if (args.customercode) baseBody.set("customercode", args.customercode);
+  // visitorcode will be conditionally added depending on attempt
 
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const raw = await fetchWithHandling(TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      authorization: `Basic ${basic}`,
-    },
-    body: body.toString(),
-  });
 
   type RawToken = {
     access_token?: string;
@@ -50,15 +76,88 @@ export async function getClientToken(args: {
     token_type?: string;
   };
 
-  const payload = raw as RawToken;
-  const token: TokenResponse = {
-    access_token: payload?.access_token ?? payload?.["access-token"] ?? "",
-    expires_in: payload?.expires_in ?? 0,
-    token_type: payload?.token_type ?? "Bearer",
+  // Helper to build headers
+  const commonHeaders = {
+    accept: "application/json",
+    "accept-language": "en-US",
+    "content-type": "application/x-www-form-urlencoded",
+  } as const;
+
+  // Attempt helper
+  const attempt = async (label: string, useBasicAuth: boolean, includeVisitor: boolean) => {
+    const body = new URLSearchParams(baseBody.toString());
+    if (includeVisitor && args.visitorcode) body.set("visitorcode", args.visitorcode);
+
+    const headers: Record<string, string> = {
+      ...commonHeaders,
+    };
+    if (useBasicAuth) {
+      headers["authorization"] = `Basic ${basic}`;
+    } else {
+      // Send credentials in body
+      body.set("client_id", clientId);
+      body.set("client_secret", clientSecret);
+    }
+
+    console.log(
+      "[ZAKEKE][TOKEN] attempt",
+      JSON.stringify({
+        label,
+        useBasicAuth,
+        includeVisitor: Boolean(includeVisitor && args.visitorcode),
+        hasClientId,
+        hasClientSecret,
+        bodyKeys: Array.from(body.keys()),
+      })
+    );
+
+    const raw = await fetchWithHandling(TOKEN_URL, {
+      method: "POST",
+      headers,
+      body: body.toString(),
+    });
+
+    const payload = raw as RawToken;
+    const token: TokenResponse = {
+      access_token: payload?.access_token ?? payload?.["access-token"] ?? "",
+      expires_in: payload?.expires_in ?? 0,
+      token_type: payload?.token_type ?? "Bearer",
+    };
+    if (!token.access_token) {
+      throw new Error(`[${label}] Zakeke token response missing access_token`);
+    }
+    return token;
   };
 
-  if (!token.access_token) throw new Error("Zakeke token response missing access_token");
-  return token;
+  // Try multiple strategies: Basic/body and with/without visitorcode
+  const strategies: Array<[string, boolean, boolean]> = [
+    ["basic+visitor", true, true],
+    ["basic", true, false],
+    ["body+visitor", false, true],
+    ["body", false, false],
+  ];
+
+  let lastError: unknown = null;
+  for (const [label, useBasic, includeVisitor] of strategies) {
+    try {
+      const token = await attempt(label, useBasic, includeVisitor);
+      console.log(
+        "[ZAKEKE][TOKEN] success",
+        JSON.stringify({ label, token_type: token.token_type, expires_in: token.expires_in })
+      );
+      return token;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[ZAKEKE][TOKEN] attempt failed", JSON.stringify({ label, message: msg }));
+      // Continue to next strategy
+    }
+  }
+
+  // If we got here, all attempts failed
+  const finalMsg = lastError instanceof Error ? lastError.message : String(lastError);
+  console.error("[ZAKEKE][TOKEN] all attempts failed", JSON.stringify({ message: finalMsg }));
+  throw lastError instanceof Error ? lastError : new Error(finalMsg || "Token request failed");
 }
 
 export async function getDesignInfo(designId: string, token: string) {

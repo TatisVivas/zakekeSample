@@ -53,14 +53,30 @@ function CustomizerContent() {
   useEffect(() => {
     let destroyed = false;
     async function init() {
+      const requestId = Math.random().toString(36).slice(2, 10);
       try {
+        console.log(
+          `[CUSTOMIZER][${requestId}] requesting token`,
+          JSON.stringify({ accessType: "C2S" })
+        );
         const tokenRes = await fetch(`/api/zakeke/token`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ accessType: "C2S" }),
         });
-        if (!tokenRes.ok) throw new Error(`Token error: ${tokenRes.status}`);
+        if (!tokenRes.ok) {
+          const text = await tokenRes.text().catch(() => "");
+          console.error(
+            `[CUSTOMIZER][${requestId}] token error`,
+            JSON.stringify({ status: tokenRes.status, body: text.slice(0, 800) })
+          );
+          throw new Error(`Token error: ${tokenRes.status}`);
+        }
         const token: { access_token: string } = await tokenRes.json();
+        console.log(
+          `[CUSTOMIZER][${requestId}] token ok`,
+          JSON.stringify({ hasToken: Boolean(token?.access_token) })
+        );
 
         if (!window.ZakekeDesigner) {
           await new Promise<void>((resolve, reject) => {
@@ -69,8 +85,10 @@ function CustomizerContent() {
               "https://portal.zakeke.com/scripts/integration/apiV2/customizer.js";
             script.async = true;
             script.onload = () => resolve();
-            script.onerror = () =>
+            script.onerror = () => {
+              console.error(`[CUSTOMIZER][${requestId}] failed to load customizer.js`);
               reject(new Error("Failed to load Zakeke script"));
+            };
             document.head.appendChild(script);
           });
         }
@@ -88,7 +106,7 @@ function CustomizerContent() {
           quantity,
           designId,
 
-          // Sin variantes
+          // No variants
           selectedAttributes: {},
           getProductAttribute: async () => {
             return {
@@ -97,7 +115,7 @@ function CustomizerContent() {
             };
           },
 
-          // Debe devolver el precio unitario final (producto + diseño)
+          // Must return final unit price (product + design)
           getProductPrice: async (zakekeData: ZakekeGetProductPriceInput) => {
             try {
               const res = await fetch("/api/products", { cache: "no-store" });
@@ -113,17 +131,18 @@ function CustomizerContent() {
               const percent = Number(zakekeData?.percentPrice || 0);
               const finalUnit = base + designUnit + (base * percent) / 100;
               return { price: finalUnit, isOutOfStock: false };
-            } catch {
+            } catch (err) {
+              console.error("[CUSTOMIZER] getProductPrice failed", err);
               return { price: 0, isOutOfStock: false };
             }
           },
 
-          // Mínimo requerido para compatibilidad (precio ya calculado en getProductPrice)
+          // Minimal for compatibility (price already computed in getProductPrice)
           getProductInfo: async () => {
             return { price: 0, isOutOfStock: false };
           },
 
-          // Carrito
+          // Cart actions
           addToCart: async (payload: {
             quantity?: number;
             designid?: string;
@@ -139,7 +158,8 @@ function CustomizerContent() {
               }),
             });
             if (!res.ok) {
-              alert("No se pudo agregar al carrito");
+              console.error("[CUSTOMIZER] addToCart failed", res.status);
+              alert("Could not add to cart");
               return;
             }
             router.push("/cart");
@@ -159,13 +179,14 @@ function CustomizerContent() {
               }),
             });
             if (!res.ok) {
-              alert("No se pudo actualizar el carrito");
+              console.error("[CUSTOMIZER] editAddToCart failed", res.status);
+              alert("Could not update cart");
               return;
             }
             router.push("/cart");
           },
 
-          // Previews generadas en cliente
+          // Client previews
           isClientPreviews: true,
           imagePreviewHeight: 220,
           imagePreviewWidth: 220,
@@ -177,7 +198,7 @@ function CustomizerContent() {
       } catch (e: unknown) {
         console.error(e);
         const msg =
-          e instanceof Error ? e.message : "Error inicializando el customizer";
+          e instanceof Error ? e.message : "Error initializing customizer";
         setError(msg);
         setLoading(false);
       }
@@ -190,9 +211,9 @@ function CustomizerContent() {
 
   return (
     <div className="p-4">
-      <div className="text-xl font-semibold mb-4">Personalizador</div>
+      <div className="text-xl font-semibold mb-4">Customizer</div>
 
-      {loading && <div>Cargando...</div>}
+      {loading && <div>Loading...</div>}
       {error && <div className="text-red-600">{error}</div>}
 
       <div
@@ -209,7 +230,7 @@ export default function CustomizerPage() {
     <Suspense
       fallback={
         <div className="p-4">
-          <div>Cargando...</div>
+          <div>Loading...</div>
         </div>
       }
     >

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getProductByCode, setProductCustomizable } from "@/lib/db";
 import { requireBasicAuth } from "@/lib/auth";
 
-export async function POST(req: NextRequest, context: { params: Promise<{ code: string }> }) {
+export async function POST(req: NextRequest, context: any) {
   const { code } = await context.params;
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ code: 
   return new Response(null, { status: 200 });
 }
 
-export async function DELETE(req: NextRequest, context: { params: Promise<{ code: string }> }) {
+export async function DELETE(req: NextRequest, context: any) {
   const { code } = await context.params;
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
