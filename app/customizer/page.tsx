@@ -9,6 +9,7 @@ declare global {
   interface Window {
     ZakekeDesigner?: new () => {
       createIframe: (cfg: unknown, container?: HTMLElement | null) => void;
+      removeIframe?: () => void;
     };
   }
 }
@@ -27,16 +28,25 @@ interface ZakekeGetProductPriceInput {
 function CustomizerContent() {
   const search = useSearchParams();
   const router = useRouter();
+
   const productId = search.get("productid") || "1001";
   const quantity = Number(search.get("quantity") || "1");
   const designId = search.get("designid") || undefined;
+
+  // Allow override from env if your Zakeke model code differs from the ecommerce product code
+  // Set NEXT_PUBLIC_ZAKEKE_PRODUCT_ID in your environment if needed.
+  const zakekeProductId =
+    process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID && process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID !== ""
+      ? process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID
+      : productId;
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const configBase = useMemo(
     () => ({
-      productId,
+      productId: zakekeProductId,
       productName: "Tote Bag Blanca",
       currency:
         process.env.NEXT_PUBLIC_DEFAULT_CURRENCY ||
@@ -47,7 +57,7 @@ function CustomizerContent() {
         process.env.DEFAULT_CULTURE ||
         "es-ES",
     }),
-    [productId]
+    [zakekeProductId]
   );
 
   useEffect(() => {
@@ -55,6 +65,16 @@ function CustomizerContent() {
     async function init() {
       const requestId = Math.random().toString(36).slice(2, 10);
       try {
+        console.log(
+          `[CUSTOMIZER][${requestId}] init`,
+          JSON.stringify({
+            urlParamProductId: productId,
+            effectiveProductId: configBase.productId,
+            quantity,
+            hasDesignId: Boolean(designId),
+          })
+        );
+
         console.log(
           `[CUSTOMIZER][${requestId}] requesting token`,
           JSON.stringify({ accessType: "C2S" })
@@ -106,7 +126,7 @@ function CustomizerContent() {
           quantity,
           designId,
 
-          // No variants
+          // No variants in this sample
           selectedAttributes: {},
           getProductAttribute: async () => {
             return {
@@ -188,10 +208,21 @@ function CustomizerContent() {
 
           // Client previews
           isClientPreviews: true,
-          imagePreviewHeight: 220,
-          imagePreviewWidth: 220,
+          imagePreviewHeight: 400,
+          imagePreviewWidth: 400,
           hideVariants: true,
         };
+
+        console.log(
+          `[CUSTOMIZER][${requestId}] creating iframe`,
+          JSON.stringify({
+            productId: cfg.productId,
+            quantity: cfg.quantity,
+            hasDesignId: Boolean(cfg.designId),
+            isClientPreviews: cfg.isClientPreviews,
+            imagePreview: { w: cfg.imagePreviewWidth, h: cfg.imagePreviewHeight },
+          })
+        );
 
         designer.createIframe(cfg, containerRef.current);
         setLoading(false);
@@ -219,7 +250,9 @@ function CustomizerContent() {
       <div
         id="zakeke-container"
         ref={containerRef}
-        style={{ width: "100%", minHeight: 600, border: "1px solid #ddd" }}
+        style={{
+          border: "1px solid #ddd",
+        }}
       />
     </div>
   );
