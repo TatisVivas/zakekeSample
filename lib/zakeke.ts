@@ -43,10 +43,16 @@ export async function getClientToken(args: {
     body: body.toString(),
   });
 
-  // Normalize possible variations of token fields from API
-  const payload = raw as any;
+  type RawToken = {
+    access_token?: string;
+    "access-token"?: string;
+    expires_in?: number;
+    token_type?: string;
+  };
+
+  const payload = raw as RawToken;
   const token: TokenResponse = {
-    access_token: payload?.access_token ?? payload?.["access-token"],
+    access_token: payload?.access_token ?? payload?.["access-token"] ?? "",
     expires_in: payload?.expires_in ?? 0,
     token_type: payload?.token_type ?? "Bearer",
   };

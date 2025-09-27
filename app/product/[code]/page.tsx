@@ -17,7 +17,7 @@ export default async function ProductPage({
   const quantity = 1;
   const href = `/customizer?productid=${encodeURIComponent(product.code)}&quantity=${quantity}`;
   return (
-    <main className="p-8 max-w-3xl mx-auto">
+    <div className="p-8 max-w-3xl mx-auto">
       <div className="flex gap-6">
         <Image
           src={product.imageUrl || "/totebag-sample.png"}
@@ -46,6 +46,6 @@ export default async function ProductPage({
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -11,6 +11,17 @@ declare global {
   }
 }
 
+type ZakekeSelectedAttributes = Record<string, string>;
+interface ZakekeGetProductPriceInput {
+  productid?: string;
+  productId?: string;
+  selectedattributes?: ZakekeSelectedAttributes[];
+  percentPrice?: number;
+  price?: number;
+  quantity?: number;
+  additionaldata?: unknown;
+}
+
 function CustomizerContent() {
   const search = useSearchParams();
   const router = useRouter();
@@ -48,7 +59,7 @@ function CustomizerContent() {
           body: JSON.stringify({ accessType: "C2S" }),
         });
         if (!tokenRes.ok) throw new Error(`Token error: ${tokenRes.status}`);
-        const token = await tokenRes.json();
+        const token: { access_token: string } = await tokenRes.json();
 
         // Cargar script si no está presente
         if (!window.ZakekeDesigner) {
@@ -76,6 +87,7 @@ function CustomizerContent() {
           culture: configBase.culture,
           quantity,
           designId,
+
           // Sin variantes
           selectedAttributes: {},
           getProductAttribute: async () => {
@@ -84,8 +96,9 @@ function CustomizerContent() {
               variants: [],
             };
           },
+
           // Debe devolver el precio unitario final (producto + diseño)
-          getProductPrice: async (zakekeData: any) => {
+          getProductPrice: async (zakekeData: ZakekeGetProductPriceInput) => {
             try {
               const res = await fetch("/api/products", { cache: "no-store" });
               const items = (await res.json()) as Array<{
@@ -104,10 +117,12 @@ function CustomizerContent() {
               return { price: 0, isOutOfStock: false };
             }
           },
+
           // Mínimo requerido para compatibilidad (precio ya calculado en getProductPrice)
           getProductInfo: async () => {
             return { price: 0, isOutOfStock: false };
           },
+
           // Carrito
           addToCart: async (payload: {
             quantity?: number;
@@ -149,6 +164,7 @@ function CustomizerContent() {
             }
             router.push("/cart");
           },
+
           // Previews generadas en cliente
           isClientPreviews: true,
           imagePreviewHeight: 220,
@@ -173,16 +189,18 @@ function CustomizerContent() {
   }, [configBase, quantity, designId, productId, router]);
 
   return (
-    <main className="p-4">
-      <h1 className="text-xl font-semibold mb-4">Personalizador</h1>
-      {loading && <p>Cargando...</p>}
-      {error && <p className="text-red-600">{error}</p>}
+    <div className="p-4">
+      <div className="text-xl font-semibold mb-4">Personalizador</div>
+
+      {loading && <div>Cargando...</div>}
+      {error && <div className="text-red-600">{error}</div>}
+
       <div
         id="zakeke-container"
         ref={containerRef}
         style={{ width: "100%", minHeight: 600, border: "1px solid #ddd" }}
       />
-    </main>
+    </div>
   );
 }
 
@@ -190,9 +208,9 @@ export default function CustomizerPage() {
   return (
     <Suspense
       fallback={
-        <main className="p-4">
-          <p>Cargando...</p>
-        </main>
+        <div className="p-4">
+          <div>Cargando...</div>
+        </div>
       }
     >
       <CustomizerContent />
