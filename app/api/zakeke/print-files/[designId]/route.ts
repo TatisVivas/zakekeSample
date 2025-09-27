@@ -1,17 +1,17 @@
 import { NextRequest } from "next/server";
 import { getClientToken, getPrintZip } from "@/lib/zakeke";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ designId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { designId: string } }) {
   try {
-    const { designId } = await params;
+    const { designId } = params;
     const { access_token } = await getClientToken({ accessType: "S2S" });
     const res = (await getPrintZip(designId, access_token)) as unknown;
-    // If real API returns a binary or different shape, map to { url }
-    const url = typeof res === "string"
-      ? res
-      : (res as { url?: string; downloadUrl?: string } | null | undefined)?.url
-        || (res as { url?: string; downloadUrl?: string } | null | undefined)?.downloadUrl
-        || null;
+    const url =
+      typeof res === "string"
+        ? res
+        : (res as { url?: string; downloadUrl?: string } | null | undefined)?.url ||
+          (res as { url?: string; downloadUrl?: string } | null | undefined)?.downloadUrl ||
+          null;
     if (!url) return Response.json({ url: "" });
     return Response.json({ url });
   } catch (e: unknown) {
@@ -20,5 +20,3 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ desi
     return new Response(msg, { status });
   }
 }
-
-

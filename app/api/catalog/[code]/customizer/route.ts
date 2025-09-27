@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { getProductByCode, setProductCustomizable } from "@/lib/db";
 import { requireBasicAuth } from "@/lib/auth";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
+export async function POST(req: NextRequest, { params }: { params: { code: string } }) {
+  const { code } = params;
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
   const product = getProductByCode(code);
@@ -12,8 +12,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
   return new Response(null, { status: 200 });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
-  const { code } = await params;
+export async function DELETE(req: NextRequest, { params }: { params: { code: string } }) {
+  const { code } = params;
   const auth = requireBasicAuth(req);
   if (!auth.ok) return auth.error!;
   const product = getProductByCode(code);
@@ -21,5 +21,3 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
   setProductCustomizable(code, false);
   return new Response(null, { status: 200 });
 }
-
-

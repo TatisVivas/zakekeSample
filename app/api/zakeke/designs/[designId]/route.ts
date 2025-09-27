@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { getClientToken, getDesignInfo } from "@/lib/zakeke";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ designId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { designId: string } }) {
   try {
-    const { designId } = await params;
+    const { designId } = params;
     const { access_token } = await getClientToken({ accessType: "S2S" });
     const info = await getDesignInfo(designId, access_token);
     return Response.json(info);
@@ -13,5 +13,3 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ desi
     return new Response(msg, { status });
   }
 }
-
-

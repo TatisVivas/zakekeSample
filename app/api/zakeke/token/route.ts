@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getClientToken } from "@/lib/zakeke";
+import { readVisitor } from "@/lib/visitor";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,11 +9,15 @@ export async function POST(req: NextRequest) {
       visitorcode?: string;
       customercode?: string;
     };
+
+    const visitorFromCookie = await readVisitor();
+
     const token = await getClientToken({
-      accessType: body.accessType || "S2S",
-      visitorcode: body.visitorcode,
+      accessType: body.accessType || "C2S",
+      visitorcode: body.visitorcode ?? visitorFromCookie,
       customercode: body.customercode,
     });
+
     return Response.json(token);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to get token";
@@ -20,5 +25,3 @@ export async function POST(req: NextRequest) {
     return new Response(msg, { status });
   }
 }
-
-

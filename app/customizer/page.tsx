@@ -14,67 +14,114 @@ declare global {
 function CustomizerContent() {
   const search = useSearchParams();
   const router = useRouter();
-  const productId = search.get("productid") || "TOTEBAG-001"; // Adjust if needed
+  const productId = search.get("productid") || "1001";
   const quantity = Number(search.get("quantity") || "1");
   const designId = search.get("designid") || undefined;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const configBase = useMemo(() => ({
-    productId,
-    productName: "Tote Bag Blanca", // Change if needed
-    currency: process.env.NEXT_PUBLIC_DEFAULT_CURRENCY || process.env.DEFAULT_CURRENCY || "COP",
-    culture: process.env.NEXT_PUBLIC_DEFAULT_CULTURE || process.env.DEFAULT_CULTURE || "es-ES",
-  }), [productId]);
+  const configBase = useMemo(
+    () => ({
+      productId,
+      productName: "Tote Bag Blanca",
+      currency:
+        process.env.NEXT_PUBLIC_DEFAULT_CURRENCY ||
+        process.env.DEFAULT_CURRENCY ||
+        "COP",
+      culture:
+        process.env.NEXT_PUBLIC_DEFAULT_CULTURE ||
+        process.env.DEFAULT_CULTURE ||
+        "es-ES",
+    }),
+    [productId]
+  );
 
   useEffect(() => {
     let destroyed = false;
     async function init() {
       try {
-        // Get OAuth token from server without exposing secret
+        // Token C2S vinculado al visitor automáticamente en el endpoint
         const tokenRes = await fetch(`/api/zakeke/token`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ accessType: "S2S" }),
+          body: JSON.stringify({ accessType: "C2S" }),
         });
         if (!tokenRes.ok) throw new Error(`Token error: ${tokenRes.status}`);
         const token = await tokenRes.json();
 
-        // Load script if not already loaded
+        // Cargar script si no está presente
         if (!window.ZakekeDesigner) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = "https://portal.zakeke.com/scripts/integration/apiV2/customizer.js";
+            script.src =
+              "https://portal.zakeke.com/scripts/integration/apiV2/customizer.js";
             script.async = true;
             script.onload = () => resolve();
-            script.onerror = () => reject(new Error("Failed to load Zakeke script"));
+            script.onerror = () =>
+              reject(new Error("Failed to load Zakeke script"));
             document.head.appendChild(script);
           });
         }
 
         if (destroyed) return;
-        const designer = new (window as Window & typeof globalThis).ZakekeDesigner!();
+        const designer = new (window as Window & typeof globalThis)
+          .ZakekeDesigner!();
+
         const cfg = {
           tokenOauth: token.access_token,
           productId: configBase.productId,
           productName: configBase.productName,
           currency: configBase.currency,
           culture: configBase.culture,
-          quantity: quantity,
-          designId: designId,
-          // Callbacks required
-          getProductInfo: async (): Promise<{ price: number; isOutOfStock: boolean }> => {
-            // Basic info for pricing/stock
-            // If you need real-time price, fetch from your server
-            return { price: 45000, isOutOfStock: false };
+          quantity,
+          designId,
+          // Sin variantes
+          selectedAttributes: {},
+          getProductAttribute: async () => {
+            return {
+              attributes: [],
+              variants: [],
+            };
           },
-          addToCart: async (payload: { quantity?: number; designid?: string; designId?: string }) => {
-            // payload may contain: designid, quantity, selectedattributes, etc.
+          // Debe devolver el precio unitario final (producto + diseño)
+          getProductPrice: async (zakekeData: any) => {
+            try {
+              const res = await fetch("/api/products", { cache: "no-store" });
+              const items = (await res.json()) as Array<{
+                code: string;
+                basePrice: number;
+              }>;
+              const p = items.find(
+                (it) => String(it.code) === String(configBase.productId)
+              );
+              const base = Number(p?.basePrice || 0);
+              const designUnit = Number(zakekeData?.price || 0);
+              const percent = Number(zakekeData?.percentPrice || 0);
+              const finalUnit = base + designUnit + (base * percent) / 100;
+              return { price: finalUnit, isOutOfStock: false };
+            } catch {
+              return { price: 0, isOutOfStock: false };
+            }
+          },
+          // Mínimo requerido para compatibilidad (precio ya calculado en getProductPrice)
+          getProductInfo: async () => {
+            return { price: 0, isOutOfStock: false };
+          },
+          // Carrito
+          addToCart: async (payload: {
+            quantity?: number;
+            designid?: string;
+            designId?: string;
+          }) => {
             const res = await fetch("/api/cart", {
               method: "POST",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ sku: productId, quantity: payload?.quantity || quantity, designId: payload?.designid || payload?.designId }),
+              body: JSON.stringify({
+                sku: productId,
+                quantity: payload?.quantity || quantity,
+                designId: payload?.designid || payload?.designId,
+              }),
             });
             if (!res.ok) {
               alert("No se pudo agregar al carrito");
@@ -82,12 +129,19 @@ function CustomizerContent() {
             }
             router.push("/cart");
           },
-          editAddToCart: async (payload: { quantity?: number; designid?: string; designId?: string }) => {
-            // For simplicity, upsert by SKU
+          editAddToCart: async (payload: {
+            quantity?: number;
+            designid?: string;
+            designId?: string;
+          }) => {
             const res = await fetch("/api/cart", {
               method: "PUT",
               headers: { "content-type": "application/json" },
-              body: JSON.stringify({ sku: productId, quantity: payload?.quantity || quantity, designId: payload?.designid || payload?.designId }),
+              body: JSON.stringify({
+                sku: productId,
+                quantity: payload?.quantity || quantity,
+                designId: payload?.designid || payload?.designId,
+              }),
             });
             if (!res.ok) {
               alert("No se pudo actualizar el carrito");
@@ -95,13 +149,19 @@ function CustomizerContent() {
             }
             router.push("/cart");
           },
+          // Previews generadas en cliente
+          isClientPreviews: true,
+          imagePreviewHeight: 220,
+          imagePreviewWidth: 220,
+          hideVariants: true,
         };
 
         designer.createIframe(cfg, containerRef.current);
         setLoading(false);
       } catch (e: unknown) {
         console.error(e);
-        const msg = e instanceof Error ? e.message : "Error inicializando el customizer";
+        const msg =
+          e instanceof Error ? e.message : "Error inicializando el customizer";
         setError(msg);
         setLoading(false);
       }
@@ -117,17 +177,25 @@ function CustomizerContent() {
       <h1 className="text-xl font-semibold mb-4">Personalizador</h1>
       {loading && <p>Cargando...</p>}
       {error && <p className="text-red-600">{error}</p>}
-      <div id="zakeke-container" ref={containerRef} style={{ width: "100%", minHeight: 600, border: "1px solid #ddd" }} />
+      <div
+        id="zakeke-container"
+        ref={containerRef}
+        style={{ width: "100%", minHeight: 600, border: "1px solid #ddd" }}
+      />
     </main>
   );
 }
 
 export default function CustomizerPage() {
   return (
-    <Suspense fallback={<main className="p-4"><p>Cargando...</p></main>}>
+    <Suspense
+      fallback={
+        <main className="p-4">
+          <p>Cargando...</p>
+        </main>
+      }
+    >
       <CustomizerContent />
     </Suspense>
   );
 }
-
-
