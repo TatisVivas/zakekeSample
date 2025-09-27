@@ -17,6 +17,7 @@ export async function getOrCreateVisitor(): Promise<string> {
   return id;
 }
 
+
 export async function readVisitor(): Promise<string | undefined> {
   const store = await cookies();
   return store.get(VISITOR_COOKIE)?.value;
