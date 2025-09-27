@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -52,7 +54,6 @@ function CustomizerContent() {
     let destroyed = false;
     async function init() {
       try {
-        // Token C2S vinculado al visitor automáticamente en el endpoint
         const tokenRes = await fetch(`/api/zakeke/token`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -61,7 +62,6 @@ function CustomizerContent() {
         if (!tokenRes.ok) throw new Error(`Token error: ${tokenRes.status}`);
         const token: { access_token: string } = await tokenRes.json();
 
-        // Cargar script si no está presente
         if (!window.ZakekeDesigner) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
