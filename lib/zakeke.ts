@@ -16,8 +16,10 @@ async function fetchWithHandling(url: string, options: RequestInit) {
   return res.text();
 }
 
+const TOKEN_URL = process.env.ZAKEKE_TOKEN_URL || "https://api.zakeke.com/token";
+
 export async function getClientToken(args: {
-  accessType?: "S2S" | "B2C" | string;
+  accessType?: "S2S" | "B2C" | "C2S" | string;
   visitorcode?: string;
   customercode?: string;
 }) {
@@ -32,16 +34,25 @@ export async function getClientToken(args: {
   if (args.customercode) body.set("customercode", args.customercode);
 
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const data = (await fetchWithHandling("https://oauth.zakeke.com/connect/token", {
+  const raw = await fetchWithHandling(TOKEN_URL, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       authorization: `Basic ${basic}`,
     },
     body: body.toString(),
-  })) as TokenResponse;
+  });
 
-  return data;
+  // Normalize possible variations of token fields from API
+  const payload = raw as any;
+  const token: TokenResponse = {
+    access_token: payload?.access_token ?? payload?.["access-token"],
+    expires_in: payload?.expires_in ?? 0,
+    token_type: payload?.token_type ?? "Bearer",
+  };
+
+  if (!token.access_token) throw new Error("Zakeke token response missing access_token");
+  return token;
 }
 
 export async function getDesignInfo(designId: string, token: string) {
@@ -68,5 +79,3 @@ export async function getPrintZip(designId: string, token: string) {
     }
   );
 }
-
-
