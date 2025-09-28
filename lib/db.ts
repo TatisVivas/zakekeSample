@@ -41,53 +41,13 @@ export type ProductOption = {
  */
 let products: Product[] = [
   {
-    code: "1001",
-    name: "Tote Bag Blanca",
-    description: "Tote bag de algodón lista para personalizar.",
-    imageUrl: "/totebag-sample.png",
-    basePrice: 45000,
-    currency: process.env.DEFAULT_CURRENCY || "COP",
-    customizable: true,
-    configurable: false,
-  },
-  {
-    code: "1002",
-    name: "Tote Bag Negra",
-    description: "Tote bag de algodón color negro.",
-    imageUrl: "/totebag-sample.jpg",
-    basePrice: 48000,
-    currency: process.env.DEFAULT_CURRENCY || "COP",
-    customizable: false,
-    configurable: false,
-  },
-  {
-    code: "1003",
-    name: "Camiseta Unisex Blanca",
-    description: "Camiseta básica lista para personalizar.",
-    imageUrl: "/totebag-sample.png",
+    code: "4424614346797",
+    name: "Tshirt",
+    description: "T-shirt personalizable",
+    imageUrl: "/products/small.png",
     basePrice: 35000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
-    customizable: false,
-    configurable: false,
-  },
-  {
-    code: "1004",
-    name: "Camiseta Unisex Negra",
-    description: "Camiseta negra para personalización.",
-    imageUrl: "/totebag-sample.jpg",
-    basePrice: 38000,
-    currency: process.env.DEFAULT_CURRENCY || "COP",
-    customizable: false,
-    configurable: false,
-  },
-  {
-    code: "1005",
-    name: "Gorra Snapback",
-    description: "Gorra para bordado o impresión.",
-    imageUrl: "/totebag-sample.png",
-    basePrice: 32000,
-    currency: process.env.DEFAULT_CURRENCY || "COP",
-    customizable: false,
+    customizable: true,
     configurable: false,
   },
 ];
@@ -97,99 +57,26 @@ let products: Product[] = [
  * Match Zakeke Product Catalog API format.
  */
 const productOptionsByCode: Record<string, ProductOption[]> = {
-  // 1001: Tote Bag Blanca - options: Color
-  "1001": [
+  // 4424614346797: Tshirt - options: Talla, Color
+  "4424614346797": [
     {
-      code: "10",
-      name: "Color",
-      values: [
-        { code: "101", name: "Blanco" },
-        { code: "102", name: "Negro" },
-        { code: "103", name: "Rojo" },
-      ],
-    },
-  ],
-
-  // 1002: Tote Bag Negra - options: Color, Talla
-  "1002": [
-    {
-      code: "20",
-      name: "Color",
-      values: [
-        { code: "201", name: "Negro" },
-        { code: "202", name: "Azul" },
-      ],
-    },
-    {
-      code: "21",
+      code: "1",
       name: "Talla",
       values: [
-        { code: "211", name: "S" },
-        { code: "212", name: "M" },
-        { code: "213", name: "L" },
-      ],
-    },
-  ],
-
-  // 1003: Camiseta Unisex Blanca - options: Talla, Color
-  "1003": [
-    {
-      code: "30",
-      name: "Talla",
-      values: [
-        { code: "301", name: "S" },
-        { code: "302", name: "M" },
-        { code: "303", name: "L" },
-        { code: "304", name: "XL" },
+        { code: "11", name: "S" },
+        { code: "12", name: "M" },
+        { code: "13", name: "L" },
+        { code: "14", name: "XL" },
       ],
     },
     {
-      code: "31",
+      code: "2",
       name: "Color",
       values: [
-        { code: "311", name: "Blanco" },
-        { code: "312", name: "Gris" },
+        { code: "21", name: "Blanco" },
+        { code: "22", name: "Negro" },
+        { code: "23", name: "Gris" },
       ],
-    },
-  ],
-
-  // 1004: Camiseta Unisex Negra - options: Talla, Color
-  "1004": [
-    {
-      code: "40",
-      name: "Talla",
-      values: [
-        { code: "401", name: "S" },
-        { code: "402", name: "M" },
-        { code: "403", name: "L" },
-        { code: "404", name: "XL" },
-      ],
-    },
-    {
-      code: "41",
-      name: "Color",
-      values: [
-        { code: "411", name: "Negro" },
-        { code: "412", name: "Azul Marino" },
-      ],
-    },
-  ],
-
-  // 1005: Gorra - options: Color, Talla única
-  "1005": [
-    {
-      code: "50",
-      name: "Color",
-      values: [
-        { code: "501", name: "Negro" },
-        { code: "502", name: "Rojo" },
-        { code: "503", name: "Verde" },
-      ],
-    },
-    {
-      code: "51",
-      name: "Talla",
-      values: [{ code: "511", name: "Única" }],
     },
   ],
 };
@@ -327,3 +214,4 @@ export function removeCartItem(id: string) {
   cartItems = cartItems.filter((c) => c.id !== id);
   return cartItems.length < before;
 }
+
