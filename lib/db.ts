@@ -61,7 +61,7 @@ let products: Product[] = [
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
     configurable: false,
-    zakekeModelCode: "TOTEBAG001", // TODO: Replace with actual Zakeke Model Code from Back Office
+    zakekeModelCode: "1001", // TODO: Replace with actual Zakeke Model Code from Back Office
   }
 ];
 
