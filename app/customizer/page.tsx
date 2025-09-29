@@ -33,12 +33,9 @@ function CustomizerContent() {
   const quantity = Number(search.get("quantity") || "1");
   const designId = search.get("designid") || undefined;
 
-  // Allow override from env if your Zakeke model code differs from the ecommerce product code
-  // Set NEXT_PUBLIC_ZAKEKE_PRODUCT_ID in your environment if needed.
-  const zakekeProductId =
-    process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID && process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID !== ""
-      ? process.env.NEXT_PUBLIC_ZAKEKE_PRODUCT_ID
-      : productId;
+  // This will be set after validation
+  const [zakekeModelCode, setZakekeModelCode] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,8 +43,8 @@ function CustomizerContent() {
 
   const configBase = useMemo(
     () => ({
-      productId: zakekeProductId,
-      productName: "Tote Bag Blanca",
+      productId: zakekeModelCode || productId, // Use validated model code or fallback
+      productName: "Producto Personalizable",
       currency:
         process.env.NEXT_PUBLIC_DEFAULT_CURRENCY ||
         process.env.DEFAULT_CURRENCY ||
@@ -57,7 +54,7 @@ function CustomizerContent() {
         process.env.DEFAULT_CULTURE ||
         "es-ES",
     }),
-    [zakekeProductId]
+    [zakekeModelCode, productId]
   );
 
   useEffect(() => {
@@ -69,11 +66,31 @@ function CustomizerContent() {
           `[CUSTOMIZER][${requestId}] init`,
           JSON.stringify({
             urlParamProductId: productId,
-            effectiveProductId: configBase.productId,
             quantity,
             hasDesignId: Boolean(designId),
           })
         );
+
+        // First, validate the model code exists in Zakeke
+        console.log(`[CUSTOMIZER][${requestId}] validating model code for product ${productId}`);
+        const validationRes = await fetch("/api/zakeke/validate-model", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ productCode: productId }),
+        });
+
+        if (!validationRes.ok) {
+          const errorData = await validationRes.json().catch(() => ({}));
+          const errorMsg = errorData.error || `Validation failed: ${validationRes.status}`;
+          console.error(`[CUSTOMIZER][${requestId}] validation failed:`, errorMsg);
+          setValidationError(errorMsg);
+          setLoading(false);
+          return;
+        }
+
+        const validationData = await validationRes.json();
+        console.log(`[CUSTOMIZER][${requestId}] validation success:`, validationData);
+        setZakekeModelCode(validationData.modelCode);
 
         console.log(
           `[CUSTOMIZER][${requestId}] requesting token`,
@@ -216,21 +233,24 @@ function CustomizerContent() {
         console.log(
           `[CUSTOMIZER][${requestId}] creating iframe`,
           JSON.stringify({
-            productId: cfg.productId,
+            originalProductId: productId,
+            zakekeModelCode: cfg.productId,
             quantity: cfg.quantity,
             hasDesignId: Boolean(cfg.designId),
             isClientPreviews: cfg.isClientPreviews,
             imagePreview: { w: cfg.imagePreviewWidth, h: cfg.imagePreviewHeight },
+            sellerId: process.env.NEXT_PUBLIC_ZAKEKE_SELLER_ID || "288274",
+            environment: process.env.NODE_ENV,
           })
         );
 
         designer.createIframe(cfg, containerRef.current);
         setLoading(false);
       } catch (e: unknown) {
-        console.error(e);
+        console.error(`[CUSTOMIZER][${requestId}] initialization failed:`, e);
         const msg =
           e instanceof Error ? e.message : "Error initializing customizer";
-        setError(msg);
+        setError(`Error al inicializar el customizador: ${msg}`);
         setLoading(false);
       }
     }
@@ -238,22 +258,40 @@ function CustomizerContent() {
     return () => {
       destroyed = true;
     };
-  }, [configBase, quantity, designId, productId, router]);
+  }, [zakekeModelCode, quantity, designId, productId, router]);
 
   return (
     <div className="p-4">
       <div className="text-xl font-semibold mb-4">Customizer</div>
 
       {loading && <div>Loading...</div>}
+      {validationError && (
+        <div className="text-red-600 mb-4 p-4 bg-red-50 border border-red-200 rounded">
+          <strong>Error de validación:</strong> {validationError}
+          <div className="mt-2 text-sm">
+            <p>El producto no se puede personalizar porque:</p>
+            <ul className="list-disc list-inside mt-1">
+              <li>El Model Code no existe en Zakeke</li>
+              <li>El producto no está configurado para personalización</li>
+              <li>Hay un problema de configuración</li>
+            </ul>
+            <p className="mt-2">
+              <strong>Producto:</strong> {productId}
+            </p>
+          </div>
+        </div>
+      )}
       {error && <div className="text-red-600">{error}</div>}
 
-      <div
-        id="zakeke-container"
-        ref={containerRef}
-        style={{
-          border: "1px solid #ddd",
-        }}
-      />
+      {!validationError && (
+        <div
+          id="zakeke-container"
+          ref={containerRef}
+          style={{
+            border: "1px solid #ddd",
+          }}
+        />
+      )}
     </div>
   );
 }

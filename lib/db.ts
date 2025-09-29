@@ -12,6 +12,7 @@ export type Product = {
   currency: string;
   customizable: boolean; // Visual Product Customizer
   configurable?: boolean; // 3D Product Configurator
+  zakekeModelCode?: string; // Real Zakeke Model Code for this product
 };
 
 export type CartItem = {
@@ -49,9 +50,10 @@ let products: Product[] = [
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
     configurable: false,
+    zakekeModelCode: "4424614346797", // Use the same code as Model Code for T-shirt
   },
   {
-    code: "7fc34c44-22ab-458a-b315-b6a1e0cdf8d4",
+    code: "1001",
     name: "Tote-bag",
     description: "Totebag personalizable",
     imageUrl: "/products/totebag.png",
@@ -59,7 +61,7 @@ let products: Product[] = [
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
     configurable: false,
-
+    zakekeModelCode: "TOTEBAG001", // TODO: Replace with actual Zakeke Model Code from Back Office
   }
 ];
 
@@ -115,6 +117,11 @@ export function getProducts(page = 1, pageSize = 20, search?: string) {
 
 export function getProductByCode(code: string): Product | undefined {
   return products.find((p) => p.code === code);
+}
+
+export function getZakekeModelCode(productCode: string): string | undefined {
+  const product = getProductByCode(productCode);
+  return product?.zakekeModelCode;
 }
 
 export function upsertProduct(product: Partial<Product> & { code: string }) {

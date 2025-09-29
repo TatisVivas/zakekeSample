@@ -184,3 +184,26 @@ export async function getPrintZip(designId: string, token: string) {
     }
   );
 }
+
+/**
+ * Validates if a model code exists in Zakeke for the given seller
+ * This prevents 404 errors when opening the customizer
+ */
+export async function validateModelCode(modelCode: string, token: string): Promise<boolean> {
+  try {
+    const sellerId = process.env.ZAKEKE_SELLER_ID || "288274";
+    const response = await fetchWithHandling(
+      `https://api.zakeke.com/v3/products/${encodeURIComponent(modelCode)}?seller=${sellerId}`,
+      {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      }
+    );
+    console.log(`[ZAKEKE][VALIDATION] Model code ${modelCode} exists for seller ${sellerId}`);
+    return true;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[ZAKEKE][VALIDATION] Model code ${modelCode} validation failed:`, errorMsg);
+    return false;
+  }
+}
