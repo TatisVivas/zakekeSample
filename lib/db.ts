@@ -50,6 +50,17 @@ let products: Product[] = [
     customizable: true,
     configurable: false,
   },
+  {
+    code: "7fc34c44-22ab-458a-b315-b6a1e0cdf8d4",
+    name: "Tote-bag",
+    description: "Totebag personalizable",
+    imageUrl: "/products/totebag.png",
+    basePrice: 50000,
+    currency: process.env.DEFAULT_CURRENCY || "COP",
+    customizable: true,
+    configurable: false,
+
+  }
 ];
 
 /**
