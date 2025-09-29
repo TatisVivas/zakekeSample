@@ -1,51 +1,78 @@
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
-import Link from "next/link"
+import { CategoryContent } from "@/components/category-content"
 
 export default function MarroquineriaPage() {
   const products = [
-    { id: "3001", name: "Bolso Tote", price: 39.99, image: "/products/small.png" },
-    { id: "3002", name: "Mochila", price: 49.99, image: "/products/small.png" },
-    { id: "3003", name: "Riñonera", price: 24.99, image: "/products/small.png" },
+    { 
+      id: "3001", 
+      name: "Bolso Tote", 
+      price: 39.99, 
+      image: "/products/small.png",
+      rating: 4.7,
+      reviews: 89,
+      category: "marroquineria",
+      tags: ["Tote", "Elegante", "Unisex"]
+    },
+    { 
+      id: "3002", 
+      name: "Mochila", 
+      price: 49.99, 
+      image: "/products/small.png",
+      rating: 4.8,
+      reviews: 124,
+      isNew: true,
+      category: "marroquineria",
+      tags: ["Mochila", "Práctica", "Unisex"]
+    },
+    { 
+      id: "3003", 
+      name: "Riñonera", 
+      price: 24.99, 
+      image: "/products/small.png",
+      rating: 4.5,
+      reviews: 67,
+      category: "marroquineria",
+      tags: ["Riñonera", "Compacta", "Unisex"]
+    },
+    { 
+      id: "3004", 
+      name: "Bolso Eco-Friendly", 
+      price: 44.99, 
+      image: "/products/small.png",
+      rating: 4.9,
+      reviews: 156,
+      isNew: true,
+      category: "marroquineria",
+      tags: ["Eco", "Sostenible", "Unisex"]
+    },
+    { 
+      id: "3005", 
+      name: "Cartera Minimalista", 
+      price: 34.99, 
+      image: "/products/small.png",
+      rating: 4.6,
+      reviews: 43,
+      category: "marroquineria",
+      tags: ["Cartera", "Minimalista", "Unisex"]
+    },
+    { 
+      id: "3006", 
+      name: "Bolso Premium", 
+      price: 59.99, 
+      image: "/products/small.png",
+      rating: 4.8,
+      reviews: 98,
+      isNew: true,
+      category: "marroquineria",
+      tags: ["Premium", "Lujo", "Unisex"]
+    },
   ]
 
   return (
     <div className="min-h-screen bg-background flex">
       <DashboardSidebar />
-      <div className="flex-1 p-8">
-        <div className="mb-8">
-          <h1 className="font-serif text-3xl font-bold text-foreground mb-2">Marroquinería</h1>
-          <p className="text-muted-foreground">Bolsos y accesorios premium</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-              <div className="relative overflow-hidden rounded-t-lg">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  width={300}
-                  height={300}
-                  className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              <CardHeader>
-                <CardTitle className="font-serif text-xl">{product.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-secondary mb-4">${product.price}</p>
-                <Link href={`/mainpage/create-design?product=${product.id}`}>
-                  <Button className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground">
-                    Personalizar
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="flex-1">
+        <CategoryContent category="marroquinería" products={products} />
       </div>
     </div>
   )

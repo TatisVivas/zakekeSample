@@ -20,11 +20,11 @@ export function Navbar() {
               <Link href="#products" className="hover:text-secondary transition-colors">
                 Productos
               </Link>
-              <Link href="#marketplace" className="hover:text-secondary transition-colors">
-                Mercado
+              <Link href="/mainpage/category/camisetas" className="hover:text-secondary transition-colors">
+                Catálogo
               </Link>
-              <Link href="#pricing" className="hover:text-secondary transition-colors">
-                Precios
+              <Link href="/cart" className="hover:text-secondary transition-colors">
+                Carrito
               </Link>
             </div>
           </div>
@@ -32,10 +32,10 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             <Link href="/mainpage">
               <Button variant="ghost" className="text-primary-foreground hover:text-secondary">
-                Iniciar Sesión
+                Dashboard
               </Button>
             </Link>
-            <Link href="/mainpage">
+            <Link href="/mainpage/category/camisetas">
               <Button className="bg-secondary hover:bg-secondary/90 text-secondary-foreground">Comenzar</Button>
             </Link>
           </div>

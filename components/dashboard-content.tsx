@@ -51,7 +51,7 @@ export function DashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-green-600">
+              <p className="text-xs text-chart-1">
                 {stat.change} desde el mes pasado
               </p>
             </CardContent>
@@ -97,7 +97,7 @@ export function DashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link href="/mainpage/create-design">
+                <Link href="/mainpage/category/camisetas">
                   <Button className="w-full h-20 bg-secondary hover:bg-secondary/90 text-secondary-foreground">
                     <div className="text-center">
                       <Plus className="w-6 h-6 mx-auto mb-2" />

@@ -88,7 +88,7 @@ export function ProductsShowcase() {
         </div>
 
         <div className="text-center mt-12">
-          <Link href="/mainpage">
+          <Link href="/mainpage/category/camisetas">
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Ver Todos los Productos
             </Button>

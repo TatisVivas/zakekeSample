@@ -13,10 +13,12 @@ import {
   Palette,
   Shirt,
   Calculator,
-  X
+  X,
+  Sparkles
 } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { getProducts } from "@/lib/db"
 
 interface DesignConfig {
   product: string
@@ -31,27 +33,33 @@ export function DesignCreationFlow() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [showSampleModal, setShowSampleModal] = useState(false)
+  
+  // Get products from database
+  const { items: dbProducts } = getProducts()
+  const firstProduct = dbProducts[0]
+  
   const [config, setConfig] = useState<DesignConfig>({
-    product: "camiseta",
-    size: "M",
-    color: "blanco",
+    product: firstProduct?.code || "4424614346797",
+    size: "M", // Comentado temporalmente
+    color: "blanco", // Comentado temporalmente
     design: null,
     quantity: 1,
-    basePrice: 24.99
+    basePrice: firstProduct?.basePrice || 35000
   })
 
   const steps = [
     { id: 1, title: "Producto", icon: Shirt },
-    { id: 2, title: "Diseño", icon: Palette },
-    { id: 3, title: "Cantidad", icon: Calculator },
-    { id: 4, title: "Resumen", icon: ShoppingCart }
+    { id: 2, title: "Configuración", icon: Calculator },
+    { id: 3, title: "Personalizar", icon: Sparkles }
   ]
 
-  const productOptions = [
-    { id: "1001", name: "Camiseta Premium", price: 24.99, image: "/products/small.png" },
-    { id: "1002", name: "Sudadera", price: 44.99, image: "/products/small.png" },
-    { id: "1003", name: "Taza", price: 16.99, image: "/products/small.png" }
-  ]
+  // Use products from database
+  const productOptions = dbProducts.map(product => ({
+    id: product.code,
+    name: product.name,
+    price: product.basePrice,
+    image: product.imageUrl || "/products/small.png"
+  }))
 
   const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"]
   const colorOptions = [
@@ -69,7 +77,7 @@ export function DesignCreationFlow() {
     if (config.quantity >= 25) price *= 0.85 // 15% total discount
     if (config.quantity >= 50) price *= 0.8  // 20% total discount
     
-    return price.toFixed(2)
+    return Math.round(price).toLocaleString()
   }
 
   const samplePricing = [
@@ -79,7 +87,7 @@ export function DesignCreationFlow() {
   ]
 
   const nextStep = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1)
+    if (currentStep < 3) setCurrentStep(currentStep + 1)
   }
 
   const prevStep = () => {
@@ -91,8 +99,8 @@ export function DesignCreationFlow() {
     const params = new URLSearchParams({
       productid: config.product,
       quantity: config.quantity.toString(),
-      size: config.size,
-      color: config.color
+      // size: config.size, // Comentado temporalmente
+      // color: config.color // Comentado temporalmente
     })
     router.push(`/customizer?${params.toString()}`)
   }
@@ -160,12 +168,14 @@ export function DesignCreationFlow() {
                             className="w-full h-32 object-cover rounded mb-2"
                           />
                           <h4 className="font-medium">{product.name}</h4>
-                          <p className="text-secondary font-semibold">${product.price}</p>
+                          <p className="text-secondary font-semibold">${product.price.toLocaleString()}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
+                  {/* Comentado temporalmente - Selección de talla y color */}
+                  {/* 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <h3 className="font-semibold mb-4">Talla</h3>
@@ -204,50 +214,12 @@ export function DesignCreationFlow() {
                       </div>
                     </div>
                   </div>
+                  */}
                 </div>
               )}
 
-              {/* Step 2: Design Upload */}
+              {/* Step 2: Configuration */}
               {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold mb-4">Sube tu diseño</h3>
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-muted-foreground mb-4">
-                        Arrastra y suelta tu diseño aquí, o haz clic para seleccionar
-                      </p>
-                      <Button variant="outline">
-                        Seleccionar Archivo
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Formatos soportados: PNG, JPG, SVG (máx. 10MB)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold mb-4">O elige un diseño predefinido</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className="border rounded-lg p-4 cursor-pointer hover:border-secondary transition-colors"
-                          onClick={() => setConfig({...config, design: `preset-${i}`})}
-                        >
-                          <div className="w-full h-20 bg-muted rounded mb-2 flex items-center justify-center">
-                            <Palette className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                          <p className="text-sm text-center">Diseño {i}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Quantity */}
-              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-semibold mb-4">¿Cuántas unidades necesitas?</h3>
@@ -318,55 +290,77 @@ export function DesignCreationFlow() {
                 </div>
               )}
 
-              {/* Step 4: Summary */}
-              {currentStep === 4 && (
+              {/* Step 3: Customizer Integration */}
+              {currentStep === 3 && (
                 <div className="space-y-6">
-                  <h3 className="font-semibold mb-4">Resumen del pedido</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>Producto:</span>
-                      <span className="font-medium">
-                        {productOptions.find(p => p.id === config.product)?.name}
-                      </span>
+                  <div className="text-center">
+                    <div className="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-10 h-10 text-secondary" />
                     </div>
-                    <div className="flex justify-between">
-                      <span>Talla:</span>
-                      <span className="font-medium">{config.size}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Color:</span>
-                      <span className="font-medium">
-                        {colorOptions.find(c => c.id === config.color)?.name}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Cantidad:</span>
-                      <span className="font-medium">{config.quantity} unidades</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Precio base:</span>
-                      <span>${(config.basePrice * config.quantity).toFixed(2)}</span>
-                    </div>
-                    {config.quantity >= 10 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Descuento por volumen:</span>
-                        <span>-${((config.basePrice * config.quantity) - parseFloat(calculatePrice())).toFixed(2)}</span>
+                    <h3 className="font-semibold mb-4 text-xl">¡Listo para personalizar!</h3>
+                    <p className="text-muted-foreground mb-6">
+                      Ahora puedes personalizar tu producto con nuestro editor avanzado de Zakeke. 
+                      Agrega textos, imágenes, gráficos y mucho más.
+                    </p>
+                  </div>
+
+                  <div className="bg-accent/10 rounded-lg p-6">
+                    <h4 className="font-semibold mb-3">Resumen de tu configuración:</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Producto:</span>
+                        <span className="font-medium">
+                          {productOptions.find(p => p.id === config.product)?.name}
+                        </span>
                       </div>
-                    )}
-                    <hr />
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total:</span>
-                      <span>${calculatePrice()}</span>
+                      {/* Comentado temporalmente - Talla y color */}
+                      {/* 
+                      <div className="flex justify-between">
+                        <span>Talla:</span>
+                        <span className="font-medium">{config.size}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Color:</span>
+                        <span className="font-medium">
+                          {colorOptions.find(c => c.id === config.color)?.name}
+                        </span>
+                      </div>
+                      */}
+                      <div className="flex justify-between">
+                        <span>Cantidad:</span>
+                        <span className="font-medium">{config.quantity} unidades</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Precio base:</span>
+                        <span>${(config.basePrice * config.quantity).toLocaleString()}</span>
+                      </div>
+                      {config.quantity >= 10 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Descuento por volumen:</span>
+                          <span>-${((config.basePrice * config.quantity) - Math.round(config.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
+                        </div>
+                      )}
+                      <hr />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total estimado:</span>
+                        <span>${calculatePrice()}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                    onClick={goToCustomizer}
-                  >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Personalizar Producto
-                  </Button>
+                  <div className="text-center space-y-4">
+                    <Button 
+                      size="lg"
+                      className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground text-lg py-6"
+                      onClick={goToCustomizer}
+                    >
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Abrir Editor de Personalización
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      El precio final se calculará después de agregar tu diseño personalizado
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -385,14 +379,14 @@ export function DesignCreationFlow() {
             <CardContent>
               <div className="space-y-4">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-secondary">${calculatePrice()}</div>
+                  <div className="text-3xl font-bold text-chart-3">${calculatePrice()}</div>
                   <div className="text-sm text-muted-foreground">Precio total</div>
                 </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Precio unitario:</span>
-                    <span>${config.basePrice}</span>
+                    <span>${config.basePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Cantidad:</span>
@@ -400,12 +394,12 @@ export function DesignCreationFlow() {
                   </div>
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>${(config.basePrice * config.quantity).toFixed(2)}</span>
+                    <span>${(config.basePrice * config.quantity).toLocaleString()}</span>
                   </div>
                   {config.quantity >= 10 && (
                     <div className="flex justify-between text-green-600">
                       <span>Descuento:</span>
-                      <span>-${((config.basePrice * config.quantity) - parseFloat(calculatePrice())).toFixed(2)}</span>
+                      <span>-${((config.basePrice * config.quantity) - Math.round(config.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -434,7 +428,7 @@ export function DesignCreationFlow() {
 
         <Button
           onClick={nextStep}
-          disabled={currentStep === 4}
+          disabled={currentStep === 3}
           className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
         >
           Siguiente
