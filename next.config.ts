@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "media.zakeke.com" },
       { protocol: "https", hostname: "zakeke.blob.core.windows.net" },
       { protocol: "https", hostname: "cdn.zakeke.com" },
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
   // Build should not fail on type or lint errors in CI/server

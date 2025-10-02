@@ -165,7 +165,7 @@ export function DesignCreationFlow() {
                             alt={product.name}
                             width={150}
                             height={150}
-                            className="w-full h-32 object-cover rounded mb-2"
+                            className="w-full h-32 object-contain rounded mb-2 bg-muted/20"
                           />
                           <h4 className="font-medium">{product.name}</h4>
                           <p className="text-secondary font-semibold">${product.price.toLocaleString()}</p>

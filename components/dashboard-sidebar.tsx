@@ -1,61 +1,116 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { 
-  Home, 
-  Palette, 
-  ShoppingBag, 
   Package, 
+  Palette, 
+  Building, 
+  BarChart3, 
   Settings, 
+  User, 
   LogOut,
-  Plus,
-  BarChart3
+  ChevronLeft,
+  Menu
 } from "lucide-react"
 
 export function DashboardSidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
   const menuItems = [
-    { icon: Home, label: "Dashboard", href: "/mainpage" },
-    { icon: Palette, label: "Crear Diseño", href: "/mainpage/create-design" },
-    { icon: ShoppingBag, label: "Productos", href: "/mainpage/products" },
-    { icon: Package, label: "Pedidos", href: "/mainpage/orders" },
-    { icon: BarChart3, label: "Analíticas", href: "/mainpage/analytics" },
-    { icon: Settings, label: "Configuración", href: "/mainpage/settings" },
+    {
+      icon: Package,
+      label: "Mis Productos",
+      href: "/mainpage",
+      active: true
+    },
+    {
+      icon: Palette,
+      label: "Mis Diseños",
+      href: "/mainpage/create-design",
+      active: false
+    },
+    {
+      icon: Building,
+      label: "Mi Empresa",
+      href: "/mainpage/company",
+      active: false
+    },
+    {
+      icon: BarChart3,
+      label: "Analíticas",
+      href: "/mainpage/analytics",
+      active: false
+    },
+    {
+      icon: Settings,
+      label: "Configuración",
+      href: "/mainpage/settings",
+      active: false
+    }
   ]
 
   return (
-    <div className="w-64 bg-sidebar border-sidebar-border border-r min-h-screen p-6">
-      <div className="mb-8">
-        <Link href="/" className="font-serif text-2xl font-bold text-sidebar-foreground">
-          MerchLab
-        </Link>
-        <p className="text-sm text-sidebar-foreground/70 mt-1">Panel de Control</p>
+    <div className={`bg-primary text-primary-foreground transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'} min-h-screen flex flex-col`}>
+      {/* Header */}
+      <div className="p-4 border-b border-primary-foreground/20">
+        <div className="flex items-center justify-between">
+          {!isCollapsed && (
+            <Link href="/" className="font-serif text-2xl font-bold">
+              MerchLab
+            </Link>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-primary-foreground hover:text-secondary"
+          >
+            {isCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
-      <nav className="space-y-2 mb-8">
-        {menuItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-left text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-              <item.icon className="w-4 h-4 mr-3" />
-              {item.label}
-            </Button>
-          </Link>
-        ))}
+      {/* Navigation */}
+      <nav className="flex-1 p-4">
+        <div className="space-y-2">
+          {menuItems.map((item, index) => (
+            <Link key={index} href={item.href}>
+              <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-primary-foreground/10 ${
+                item.active ? 'bg-secondary text-secondary-foreground' : ''
+              }`}>
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {!isCollapsed && (
+                  <span className="font-medium">{item.label}</span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
       </nav>
 
-      <div className="mt-auto">
-        <Button className="w-full bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground mb-4">
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Producto
-        </Button>
-        
-        <Button variant="outline" className="w-full">
-          <LogOut className="w-4 h-4 mr-2" />
-          Cerrar Sesión
-        </Button>
+      {/* User Section */}
+      <div className="p-4 border-t border-primary-foreground/20">
+        <div className="flex items-center gap-3 p-3">
+          <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+            <User className="h-4 w-4 text-secondary-foreground" />
+          </div>
+          {!isCollapsed && (
+            <div className="flex-1">
+              <p className="text-sm font-medium">Juan Pablo</p>
+              <p className="text-xs text-primary-foreground/70">juan@example.com</p>
+            </div>
+          )}
+        </div>
+        {!isCollapsed && (
+          <Link href="/">
+            <Button variant="ghost" className="w-full justify-start text-primary-foreground hover:text-secondary mt-2">
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   )

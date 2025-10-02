@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import Link from "next/link"
 
 export function HeroSection() {
   return (
@@ -16,23 +15,15 @@ export function HeroSection() {
             las complicaciones de inventario, logística o costos iniciales.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/mainpage">
-              <Button
-                size="lg"
-                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground text-lg px-8 py-4"
-              >
-                Comenzar a Crear
-              </Button>
-            </Link>
-            <Link href="/mainpage/category/camisetas">
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="text-lg px-8 py-4 bg-transparent"
-              >
-                Explorar Productos
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              className="bg-secondary hover:bg-secondary/90 text-secondary-foreground text-lg px-8 py-4"
+            >
+              Comenzar a Crear
+            </Button>
+            <Button size="lg" variant="outline" className="text-lg px-8 py-4 bg-transparent">
+              Explorar Mercado
+            </Button>
           </div>
         </div>
 
@@ -44,31 +35,31 @@ export function HeroSection() {
                 alt="Custom T-shirt"
                 width={300}
                 height={200}
-                className="w-full h-48 object-cover rounded-lg mb-4"
+                className="w-full h-48 object-contain rounded-lg mb-4 bg-muted/20"
               />
               <h3 className="font-serif text-xl font-semibold mb-2">Ropa Personalizada</h3>
               <p className="text-muted-foreground">Diseña ropa única que refleje tu marca</p>
             </div>
 
-            <div className="bg-card rounded-lg p-6 shadow-sm">
-              <Image
-                src="/products/small.png"
-                alt="Custom Mug"
-                width={300}
-                height={200}
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-              <h3 className="font-serif text-xl font-semibold mb-2">Hogar y Oficina</h3>
-              <p className="text-muted-foreground">Artículos personalizados para uso diario</p>
-            </div>
+             <div className="bg-card rounded-lg p-6 shadow-sm">
+               <Image
+                 src="https://images.unsplash.com/photo-1605714196241-00bf7a8fe7bb?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                 alt="Custom Mug"
+                 width={300}
+                 height={200}
+                 className="w-full h-48 object-contain rounded-lg mb-4 bg-muted/20"
+               />
+               <h3 className="font-serif text-xl font-semibold mb-2">Hogar y Oficina</h3>
+               <p className="text-muted-foreground">Artículos personalizados para uso diario</p>
+             </div>
 
             <div className="bg-card rounded-lg p-6 shadow-sm">
               <Image
-                src="/products/small.png"
+                src="/totebag-sample.jpg"
                 alt="Custom Phone Case"
                 width={300}
                 height={200}
-                className="w-full h-48 object-cover rounded-lg mb-4"
+                className="w-full h-48 object-contain rounded-lg mb-4 bg-muted/20"
               />
               <h3 className="font-serif text-xl font-semibold mb-2">Accesorios</h3>
               <p className="text-muted-foreground">Accesorios tecnológicos y artículos personales</p>
