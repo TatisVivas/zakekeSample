@@ -34,29 +34,13 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      // In a real implementation, you'd fetch orders from your database
-      // For now, we'll show a placeholder
-      setOrders([
-        {
-          id: '1',
-          code: 'ORDER-001',
-          orderNumber: 'ORDER-001',
-          items: [
-            {
-              code: 'item-1',
-              productSku: 'CAM-001',
-              productName: 'Camiseta Personalizada',
-              thumbnail: '/products/small.png',
-              quantity: 2,
-              designId: 'design-123',
-              printFilesStatus: 'ready',
-              printingFilesZip: 'https://example.com/files.zip'
-            }
-          ],
-          orderDate: new Date().toISOString(),
-          total: 100000
-        }
-      ]);
+      const response = await fetch('/api/orders');
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data);
+      } else {
+        setError('Error al cargar pedidos');
+      }
     } catch (err) {
       setError('Error al cargar pedidos');
     } finally {
@@ -151,8 +135,8 @@ export default function OrdersPage() {
               </div>
 
               <div className="space-y-4">
-                {order.items.map((item) => (
-                  <div key={item.code} className="flex items-center space-x-4 border-b pb-4 last:border-b-0 last:pb-0">
+                {order.items.map((item, index) => (
+                  <div key={index} className="flex items-center space-x-4 border-b pb-4 last:border-b-0 last:pb-0">
                     <img
                       src={item.thumbnail || '/products/small.png'}
                       alt={item.productName}

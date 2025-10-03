@@ -201,6 +201,7 @@ function CustomizerContent() {
             designid?: string;
             designId?: string;
           }) => {
+            console.log('Adding to cart with payload:', payload); // Debug log
             const res = await fetch("/api/cart", {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -222,6 +223,7 @@ function CustomizerContent() {
             designid?: string;
             designId?: string;
           }) => {
+            console.log('Editing cart with payload:', payload); // Debug log
             const res = await fetch("/api/cart", {
               method: "PUT",
               headers: { "content-type": "application/json" },

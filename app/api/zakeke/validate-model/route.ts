@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
     // Get the Zakeke Model Code for this product
     const modelCode = await getZakekeModelCode(productCode);
     if (!modelCode) {
-      return Response.json({ 
+      return Response.json({
         error: "No Zakeke Model Code found for this product",
-        productCode 
+        productCode
       }, { status: 404 });
     }
 
@@ -29,25 +29,25 @@ export async function POST(req: NextRequest) {
     const isValid = await validateModelCode(modelCode, token.access_token);
     
     if (!isValid) {
-      return Response.json({ 
+      return Response.json({
         error: "Model code not found in Zakeke",
         productCode,
-        modelCode 
+        modelCode
       }, { status: 404 });
     }
 
-    return Response.json({ 
+    return Response.json({
       valid: true,
       productCode,
-      modelCode 
+      modelCode
     });
 
   } catch (error) {
     console.error("[VALIDATE-MODEL] Error:", error);
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
-    return Response.json({ 
-      error: "Validation failed", 
-      details: errorMsg 
+    return Response.json({
+      error: "Validation failed",
+      details: errorMsg
     }, { status: 500 });
   }
 }

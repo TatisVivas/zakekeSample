@@ -28,12 +28,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  console.log('POST /api/cart body:', body); // Debug log
   const created = await addCartItem({ sku: body.sku, quantity: body.quantity || 1, design_id: body.designId });
   return Response.json(created);
 }
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  console.log('PUT /api/cart body:', body); // Debug log
   const updated = await upsertCartItemBySku(body.sku, { quantity: body.quantity, design_id: body.designId });
   return Response.json(updated);
 }
@@ -53,5 +55,3 @@ export async function DELETE(req: NextRequest) {
     return Response.json({ error: "Failed to remove item" }, { status: 500 });
   }
 }
-
-

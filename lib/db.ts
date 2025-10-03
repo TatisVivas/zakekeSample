@@ -123,8 +123,11 @@ export async function getProducts(page = 1, pageSize = 20, search?: string) {
 export async function getProductByCode(code: string): Promise<Product | undefined> {
   const supabase = await getSupabase();
   const { data, error } = await supabase.from("products").select("*").eq("code", code).single();
-  if (error) throw new Error(`Error getting product ${code}: ${error.message}`);
-  return data as Product | undefined;
+  if (error || !data) {
+    console.warn(`Product not found: ${code}`);
+    return undefined;
+  }
+  return data as Product;
 }
 
 export async function getZakekeModelCode(productCode: string): Promise<string | undefined> {
@@ -287,4 +290,39 @@ export async function migrateCartToUser(userId: string) {
   } else {
     console.log(`Migrated ${visitorItems.length} cart items from visitor to user`);
   }
+}
+
+// New functions for orders
+export async function getOrders(): Promise<any[]> {
+  const supabase = await getSupabase();
+  const { id: userId } = await getUserOrVisitorId(); // Assuming user is logged in for orders
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('order_date', { ascending: false });
+
+  if (error) throw new Error(`Error getting orders: ${error.message}`);
+  return data || [];
+}
+
+export async function insertOrder(order: { code: string; items: any[]; total: number; orderDate: string }): Promise<any> {
+  const supabase = await getSupabase();
+  const { id: userId } = await getUserOrVisitorId();
+
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({
+      code: order.code,
+      user_id: userId,
+      items: order.items,
+      total: order.total,
+      order_date: order.orderDate
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Error inserting order: ${error.message}`);
+  return data;
 }

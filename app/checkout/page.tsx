@@ -9,6 +9,9 @@ type CartItem = {
   sku: string;
   quantity: number;
   designId?: string;
+  product?: {
+    base_price: number;
+  };
 };
 
 export default function CheckoutPage() {
@@ -119,6 +122,27 @@ export default function CheckoutPage() {
       const registerResult = await registerResponse.json();
       console.log('🛒 [CHECKOUT] Zakeke success response:', registerResult);
 
+      // Save order to Supabase
+      console.log('🛒 [CHECKOUT] Saving order to Supabase...');
+      const saveOrderResponse = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          code: orderCode,
+          items: cartItems.map(item => ({
+            sku: item.sku,
+            quantity: item.quantity,
+            designId: item.designId
+          })),
+          total,
+          orderDate: new Date().toISOString()
+        })
+      });
+
+      if (!saveOrderResponse.ok) {
+        throw new Error('Failed to save order to database');
+      }
+
       // Clear cart
       console.log('🛒 [CHECKOUT] Clearing cart...');
       const clearResponse = await fetch('/api/cart/clear', { method: 'POST' });
@@ -179,14 +203,14 @@ export default function CheckoutPage() {
                     {item.designId && <span className="ml-2 text-green-600">(Personalizado)</span>}
                   </p>
                 </div>
-                <p className="font-semibold">$ {(item.quantity * 50000).toLocaleString('es-CO')}</p>
+                <p className="font-semibold">$ {(item.quantity * (item.product?.base_price || 50000)).toLocaleString('es-CO')}</p>
               </div>
             ))}
           </div>
           <div className="mt-4 pt-4 border-t">
             <div className="flex justify-between items-center text-lg font-bold">
               <span>Total:</span>
-              <span>$ {cartItems.reduce((total, item) => total + (item.quantity * 50000), 0).toLocaleString('es-CO')}</span>
+              <span>$ {cartItems.reduce((total, item) => total + (item.quantity * (item.product?.base_price || 50000)), 0).toLocaleString('es-CO')}</span>
             </div>
           </div>
         </div>
