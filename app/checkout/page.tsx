@@ -8,7 +8,7 @@ type CartItem = {
   id: string;
   sku: string;
   quantity: number;
-  designId?: string;
+  design_id?: string;
   product?: {
     base_price: number;
   };
@@ -71,7 +71,7 @@ export default function CheckoutPage() {
       }
 
       // Filter items with designs
-      const itemsWithDesigns = cartItems.filter(item => item.designId);
+      const itemsWithDesigns = cartItems.filter(item => item.design_id);
       console.log('🛒 [CHECKOUT] Items with designs:', itemsWithDesigns.length);
 
       if (itemsWithDesigns.length === 0) {
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
         details: itemsWithDesigns.map(item => ({
           orderDetailCode: item.id,
           sku: item.sku,
-          designID: item.designId,
+          designID: item.design_id,
           modelUnitPrice: item.product?.base_price || 0,
           designUnitPrice: 0, // Will be calculated from design info
           quantity: item.quantity,
@@ -132,7 +132,7 @@ export default function CheckoutPage() {
           items: cartItems.map(item => ({
             sku: item.sku,
             quantity: item.quantity,
-            designId: item.designId
+            designId: item.design_id
           })),
           total,
           orderDate: new Date().toISOString()
@@ -184,7 +184,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const hasCustomizedItems = cartItems.some(item => item.designId);
+  const hasCustomizedItems = cartItems.some(item => item.design_id);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -200,7 +200,7 @@ export default function CheckoutPage() {
                   <p className="font-medium">{item.sku}</p>
                   <p className="text-sm text-gray-600">
                     Cantidad: {item.quantity}
-                    {item.designId && <span className="ml-2 text-green-600">(Personalizado)</span>}
+                    {item.design_id && <span className="ml-2 text-green-600">(Personalizado)</span>}
                   </p>
                 </div>
                 <p className="font-semibold">$ {(item.quantity * (item.product?.base_price || 50000)).toLocaleString('es-CO')}</p>

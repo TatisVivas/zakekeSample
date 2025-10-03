@@ -7,7 +7,7 @@ type CartItemType = {
   id: string;
   sku: string;
   quantity: number;
-  designId?: string;
+  design_id?: string;
   designInfo?: {
     tempPreviewImageUrl?: string;
     designUnitPrice?: number;
@@ -36,9 +36,9 @@ export default function CartPage() {
         // Enrich items with design information
         const enrichedItems = await Promise.all(
           items.map(async (item: CartItemType) => {
-            if (item.designId) {
+            if (item.design_id) {
               try {
-                const designResponse = await fetch(`/api/zakeke/designs/${item.designId}`);
+                const designResponse = await fetch(`/api/zakeke/designs/${item.design_id}`);
                 if (designResponse.ok) {
                   const designData = await designResponse.json();
                   return {
@@ -52,7 +52,7 @@ export default function CartPage() {
                   };
                 }
               } catch (error) {
-                console.warn('Error fetching design info for:', item.designId, error);
+                console.warn('Error fetching design info for:', item.design_id, error);
               }
             }
             return item;
@@ -86,7 +86,9 @@ export default function CartPage() {
       }
     } catch (error) {
       console.error('Error removing item:', error);
-      throw error;
+      alert("Error al eliminar el item del carrito");
+    } finally {
+      setIsRemoving(false);
     }
   };
 
@@ -192,9 +194,9 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
           }).format(total)}
         </p>
         <div className="mt-2 flex gap-2">
-          {item.designId && (
+          {item.design_id && (
             <Link
-              href={`/customizer?productid=${encodeURIComponent(item.sku)}&quantity=${item.quantity || 1}&designid=${encodeURIComponent(item.designId)}&from=cart`}
+              href={`/customizer?productid=${encodeURIComponent(item.sku)}&quantity=${item.quantity || 1}&designid=${encodeURIComponent(item.design_id)}&from=cart`}
               className="px-3 py-2 bg-black text-white rounded"
             >
               Editar diseño
