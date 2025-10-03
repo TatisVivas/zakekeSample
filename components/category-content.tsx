@@ -188,7 +188,7 @@ export function CategoryContent({ category, products }: CategoryContentProps) {
               </div>
 
               <div className="flex space-x-2">
-                <Link href={`/customizer?productid=${product.id}&quantity=1`} className="flex-1">
+                <Link href={`/customizer?productid=${product.id}&quantity=1&from=products`} className="flex-1">
                   <Button className="w-full bg-chart-1 hover:bg-chart-1/90 text-white">
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Personalizar

@@ -99,6 +99,7 @@ export function DesignCreationFlow() {
     const params = new URLSearchParams({
       productid: config.product,
       quantity: config.quantity.toString(),
+      from: 'products',
       // size: config.size, // Comentado temporalmente
       // color: config.color // Comentado temporalmente
     })

@@ -1,76 +1,64 @@
-/**
- * Simple in-memory "database" for demo purposes only.
- * NOTE: Data resets on server restart. Do not use in production.
- */
+import { cookies } from "next/headers";
+import { createClient } from "@/utils/supabase/server";
+import { getOrCreateVisitor } from "@/lib/visitor";
 
 export type Product = {
   code: string;
   name: string;
   description?: string;
-  imageUrl?: string;
-  basePrice: number; // base price in minor units or float for simplicity
+  image_url?: string;
+  base_price: number;
   currency: string;
-  customizable: boolean; // Visual Product Customizer
-  configurable?: boolean; // 3D Product Configurator
-  zakekeModelCode?: string; // Real Zakeke Model Code for this product
+  customizable: boolean;
+  configurable?: boolean;
+  zakeke_model_code?: string;
 };
 
 export type CartItem = {
-  id: string; // uuid
-  sku: string; // product code
+  id: string;
+  sku: string;
   quantity: number;
-  designId?: string;
+  design_id?: string;
 };
 
-/**
- * Product options model for Zakeke Catalog API.
- * Codes should be numeric strings, as per Zakeke docs.
- */
 export type ProductOptionValue = {
-  code: string; // numeric string identifier of the option value
+  code: string;
   name: string;
 };
 
 export type ProductOption = {
-  code: string; // numeric string identifier of the product option
+  code: string;
   name: string;
   values: ProductOptionValue[];
 };
 
-/**
- * Seed products
- */
-let products: Product[] = [
+// Seed data
+const seedProducts: Product[] = [
   {
     code: "4424614346797",
     name: "Tshirt",
     description: "T-shirt personalizable",
-    imageUrl: "/products/small.png",
-    basePrice: 35000,
+    image_url: "/products/small.png",
+    base_price: 35000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
     configurable: false,
-    zakekeModelCode: "4424614346797", // Use the same code as Model Code for T-shirt
+    zakeke_model_code: "4424614346797",
   },
   {
     code: "1001",
     name: "Tote-bag",
     description: "Totebag personalizable",
-    imageUrl: "/products/totebag.png",
-    basePrice: 50000,
+    image_url: "/products/totebag.png",
+    base_price: 50000,
     currency: process.env.DEFAULT_CURRENCY || "COP",
     customizable: true,
     configurable: false,
-    zakekeModelCode: "1001", // TODO: Replace with actual Zakeke Model Code from Back Office
+    zakeke_model_code: "1001",
   }
 ];
 
-/**
- * Seed options per product (codes as numeric strings)
- * Match Zakeke Product Catalog API format.
- */
-const productOptionsByCode: Record<string, ProductOption[]> = {
-  // 4424614346797: Tshirt - options: Talla, Color
+const seedProductOptions: Record<string, ProductOption[]> = {
   "4424614346797": [
     {
       code: "1",
@@ -94,142 +82,146 @@ const productOptionsByCode: Record<string, ProductOption[]> = {
   ],
 };
 
-let cartItems: CartItem[] = [];
+async function getSupabase() {
+  const cookieStore = await cookies();
+  return createClient(cookieStore);
+}
 
-/**
- * Products
- */
-export function getProducts(page = 1, pageSize = 20, search?: string) {
-  let list = products;
-  if (search) {
-    const q = search.toLowerCase();
-    list = list.filter((p) =>
-      [p.code, p.name, p.description || ""].some((s) =>
-        s.toLowerCase().includes(q)
-      )
-    );
+export async function seedData() {
+  const supabase = await getSupabase();
+
+  // Seed products
+  for (const product of seedProducts) {
+    const { error } = await supabase
+      .from("products")
+      .upsert(product, { onConflict: "code" });
+    if (error) throw new Error(`Error seeding product ${product.code}: ${error.message}`);
   }
-  const total = list.length;
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize;
-  return { items: list.slice(start, end), total, page, pageSize };
-}
 
-export function getProductByCode(code: string): Product | undefined {
-  return products.find((p) => p.code === code);
-}
-
-export function getZakekeModelCode(productCode: string): string | undefined {
-  const product = getProductByCode(productCode);
-  return product?.zakekeModelCode;
-}
-
-export function upsertProduct(product: Partial<Product> & { code: string }) {
-  const existing = getProductByCode(product.code);
-  if (existing) {
-    const updated = { ...existing, ...product } as Product;
-    products = products.map((p) => (p.code === product.code ? updated : p));
-    return updated;
+  // Seed options
+  for (const [product_code, options] of Object.entries(seedProductOptions)) {
+    const { error } = await supabase
+      .from("product_options")
+      .upsert({ product_code, options }, { onConflict: "product_code" });
+    if (error) throw new Error(`Error seeding options for ${product_code}: ${error.message}`);
   }
-  const created: Product = {
-    code: product.code,
-    name: product.name || product.code,
-    basePrice: product.basePrice ?? 0,
-    currency: product.currency || process.env.DEFAULT_CURRENCY || "COP",
-    customizable: product.customizable ?? false,
-    configurable: product.configurable ?? false,
-    description: product.description,
-    imageUrl: product.imageUrl,
-  };
-  products.push(created);
-  return created;
+
+  console.log("Seed completed successfully");
 }
 
-export function setProductCustomizable(code: string, customizable: boolean) {
-  const p = getProductByCode(code);
+export async function getProducts(page = 1, pageSize = 20, search?: string) {
+  const supabase = await getSupabase();
+  let query = supabase.from("products").select("*", { count: "exact" });
+  if (search) query = query.ilike("name", `%${search}%`);
+  const { data, error, count } = await query.range((page - 1) * pageSize, page * pageSize - 1);
+  if (error) throw new Error(`Error getting products: ${error.message}`);
+  return { items: data as Product[], total: count || 0, page, pageSize };
+}
+
+export async function getProductByCode(code: string): Promise<Product | undefined> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase.from("products").select("*").eq("code", code).single();
+  if (error) throw new Error(`Error getting product ${code}: ${error.message}`);
+  return data as Product | undefined;
+}
+
+export async function getZakekeModelCode(productCode: string): Promise<string | undefined> {
+  const product = await getProductByCode(productCode);
+  return product?.zakeke_model_code;
+}
+
+export async function upsertProduct(product: Partial<Product> & { code: string }): Promise<Product> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from("products")
+    .upsert(product, { onConflict: "code" })
+    .select()
+    .single();
+  if (error) throw new Error(`Error upserting product ${product.code}: ${error.message}`);
+  return data as Product;
+}
+
+export async function setProductCustomizable(code: string, customizable: boolean): Promise<Product | undefined> {
+  const p = await getProductByCode(code);
   if (!p) return undefined;
-  p.customizable = customizable;
-  return p;
+  return upsertProduct({ ...p, customizable });
 }
 
-export function setProductConfigurable(code: string, configurable: boolean) {
-  const p = getProductByCode(code);
+export async function setProductConfigurable(code: string, configurable: boolean): Promise<Product | undefined> {
+  const p = await getProductByCode(code);
   if (!p) return undefined;
-  p.configurable = configurable;
-  return p;
+  return upsertProduct({ ...p, configurable });
 }
 
-/**
- * Product Options
- */
-export function getProductOptionsByCode(code: string): ProductOption[] {
-  return productOptionsByCode[code] ? [...productOptionsByCode[code]] : [];
+export async function getProductOptionsByCode(code: string): Promise<ProductOption[]> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase.from("product_options").select("options").eq("product_code", code).single();
+  if (error) throw new Error(`Error getting options for ${code}: ${error.message}`);
+  return (data?.options as ProductOption[]) || [];
 }
 
-export function upsertProductOptionsByCode(
-  code: string,
-  options: ProductOption[]
-): ProductOption[] {
-  // sanitize: ensure codes are strings
-  productOptionsByCode[code] = options.map((opt) => ({
-    code: String(opt.code),
-    name: opt.name,
-    values: (opt.values || []).map((v) => ({
-      code: String(v.code),
-      name: v.name,
-    })),
-  }));
-  return getProductOptionsByCode(code);
+export async function upsertProductOptionsByCode(code: string, options: ProductOption[]): Promise<ProductOption[]> {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from("product_options")
+    .upsert({ product_code: code, options }, { onConflict: "product_code" });
+  if (error) throw new Error(`Error upserting options for ${code}: ${error.message}`);
+  return options;
 }
 
-/**
- * Cart
- */
-export function clearCart() {
-  cartItems = [];
+export async function clearCart() {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+  const { error } = await supabase.from("cart_items").delete().eq("visitor_id", visitor);
+  if (error) throw new Error(`Error clearing cart: ${error.message}`);
 }
 
-export function getCartItems() {
-  return cartItems;
+export async function getCartItems(): Promise<CartItem[]> {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+  const { data, error } = await supabase.from("cart_items").select("*").eq("visitor_id", visitor);
+  if (error) throw new Error(`Error getting cart items: ${error.message}`);
+  return data as CartItem[];
 }
 
-export function addCartItem(item: Omit<CartItem, "id"> & { id?: string }) {
-  const id = item.id || crypto.randomUUID();
-  const created: CartItem = {
-    id,
-    sku: item.sku,
-    quantity: item.quantity,
-    designId: item.designId,
-  };
-  cartItems.push(created);
-  return created;
+export async function addCartItem(item: Omit<CartItem, "id"> & { id?: string }): Promise<CartItem> {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+
+  const toInsert = { ...item, visitor_id: visitor };
+  const { data, error } = await supabase.from("cart_items").insert(toInsert).select().single();
+
+  if (error) throw new Error(`Error adding cart item: ${error.message}`);
+  return data as CartItem;
 }
 
-export function updateCartItem(id: string, updates: Partial<CartItem>) {
-  const idx = cartItems.findIndex((c) => c.id === id);
-  if (idx === -1) return undefined;
-  cartItems[idx] = { ...cartItems[idx], ...updates };
-  return cartItems[idx];
+export async function updateCartItem(id: string, updates: Partial<CartItem>): Promise<CartItem | undefined> {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+  const { data, error } = await supabase
+    .from("cart_items")
+    .update(updates)
+    .eq("id", id)
+    .eq("visitor_id", visitor)
+    .select()
+    .single();
+  if (error) throw new Error(`Error updating cart item ${id}: ${error.message}`);
+  return data as CartItem | undefined;
 }
 
-export function upsertCartItemBySku(
-  sku: string,
-  updates: Partial<CartItem> & { quantity?: number }
-) {
-  const existing = cartItems.find((c) => c.sku === sku);
+export async function upsertCartItemBySku(sku: string, updates: Partial<CartItem> & { quantity?: number }): Promise<CartItem> {
+  const items = await getCartItems();
+  const existing = items.find((c) => c.sku === sku);
   if (!existing) {
-    return addCartItem({
-      sku,
-      quantity: updates.quantity || 1,
-      designId: updates.designId,
-    });
+    return addCartItem({ sku, quantity: updates.quantity || 1, design_id: updates.design_id });
   }
-  return updateCartItem(existing.id, updates);
+  return (await updateCartItem(existing.id, updates))!;
 }
 
-export function removeCartItem(id: string) {
-  const before = cartItems.length;
-  cartItems = cartItems.filter((c) => c.id !== id);
-  return cartItems.length < before;
+export async function removeCartItem(id: string): Promise<boolean> {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+  const { error } = await supabase.from("cart_items").delete().eq("id", id).eq("visitor_id", visitor);
+  if (error) throw new Error(`Error removing cart item ${id}: ${error.message}`);
+  return true;
 }
-

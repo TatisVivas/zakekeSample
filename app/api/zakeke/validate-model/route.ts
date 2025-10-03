@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the Zakeke Model Code for this product
-    const modelCode = getZakekeModelCode(productCode);
+    const modelCode = await getZakekeModelCode(productCode);
     if (!modelCode) {
       return Response.json({ 
         error: "No Zakeke Model Code found for this product",

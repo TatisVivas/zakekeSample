@@ -32,6 +32,7 @@ function CustomizerContent() {
   const productId = search.get("productid") || "1001";
   const quantity = Number(search.get("quantity") || "1");
   const designId = search.get("designid") || undefined;
+  const from = search.get("from") || "products"; // 'products' or 'cart'
 
   // This will be set after validation
   const [zakekeModelCode, setZakekeModelCode] = useState<string | null>(null);
@@ -223,10 +224,23 @@ function CustomizerContent() {
             router.push("/cart");
           },
 
+          onBackClicked: async (payload: unknown) => {
+            console.log(`[CUSTOMIZER][${requestId}] back clicked`, payload);
+            // Redirect based on origin
+            if (from === "cart") {
+              router.push("/cart");
+            } else {
+              router.push("/mainpage/category/camisetas");
+            }
+          },
+
           // Client previews
           isClientPreviews: true,
           imagePreviewHeight: 400,
           imagePreviewWidth: 400,
+          // Container sizing
+          containerHeight: 800,
+          containerWidth: '100%',
           hideVariants: true,
         };
 
@@ -245,6 +259,20 @@ function CustomizerContent() {
         );
 
         designer.createIframe(cfg, containerRef.current);
+
+        // Force iframe sizing after creation
+        setTimeout(() => {
+          const container = containerRef.current;
+          if (container) {
+            const iframe = container.querySelector('iframe');
+            if (iframe) {
+              iframe.style.width = '100%';
+              iframe.style.height = '800px';
+              iframe.style.minHeight = '600px';
+            }
+          }
+        }, 1000);
+
         setLoading(false);
       } catch (e: unknown) {
         console.error(`[CUSTOMIZER][${requestId}] initialization failed:`, e);
@@ -258,7 +286,7 @@ function CustomizerContent() {
     return () => {
       destroyed = true;
     };
-  }, [zakekeModelCode, quantity, designId, productId, router]);
+  }, [quantity, designId, productId, router]);
 
   return (
     <div className="p-4">
@@ -289,8 +317,22 @@ function CustomizerContent() {
           ref={containerRef}
           style={{
             border: "1px solid #ddd",
+            maxWidth: "1200px",
+            width: "100%",
+            height: "800px",
+            minHeight: "600px",
+            margin: "0 auto",
+            position: "relative",
           }}
-        />
+        >
+          <style jsx>{`
+            #zakeke-container iframe {
+              width: 100% !important;
+              height: 100% !important;
+              minHeight: 600px !important;
+            }
+          `}</style>
+        </div>
       )}
     </div>
   );
