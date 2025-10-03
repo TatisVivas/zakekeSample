@@ -35,7 +35,8 @@ async function createTables() {
       sku TEXT NOT NULL,
       quantity INTEGER NOT NULL,
       design_id TEXT,
-      visitor_id TEXT NOT NULL
+      visitor_id TEXT,
+      user_id TEXT
     );`,
     `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`
   ];
@@ -83,7 +84,7 @@ async function createTables() {
 
   // Verificar tabla cart_items
   try {
-    const { data: cartData, error: cartError } = await supabase.from('cart_items').select('id, sku, quantity, design_id, visitor_id').limit(1);
+    const { data: cartData, error: cartError } = await supabase.from('cart_items').select('id, sku, quantity, design_id, visitor_id, user_id').limit(1);
     if (cartError && cartError.code === 'PGRST116') {
       console.log("❌ Tabla 'cart_items' no existe");
     } else if (cartError) {

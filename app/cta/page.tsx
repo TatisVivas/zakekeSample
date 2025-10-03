@@ -1,4 +1,3 @@
-import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,8 +34,6 @@ export default function CTAPage() {
 
   return (
     <main className="min-h-screen">
-      <Navbar />
-      
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-secondary/10 to-primary/10">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="font-serif text-4xl md:text-6xl font-bold text-foreground mb-6">

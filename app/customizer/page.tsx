@@ -93,14 +93,29 @@ function CustomizerContent() {
         console.log(`[CUSTOMIZER][${requestId}] validation success:`, validationData);
         setZakekeModelCode(validationData.modelCode);
 
+        // Get user session for customercode
+        let customercode: string | undefined;
+        try {
+          const sessionRes = await fetch('/api/auth/session');
+          if (sessionRes.ok) {
+            const session = await sessionRes.json();
+            customercode = session.user?.id;
+          }
+        } catch (e) {
+          console.warn(`[CUSTOMIZER][${requestId}] could not get session:`, e);
+        }
+
         console.log(
           `[CUSTOMIZER][${requestId}] requesting token`,
-          JSON.stringify({ accessType: "C2S" })
+          JSON.stringify({ accessType: "C2S", hasCustomer: Boolean(customercode) })
         );
         const tokenRes = await fetch(`/api/zakeke/token`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ accessType: "C2S" }),
+          body: JSON.stringify({
+            accessType: "C2S",
+            customercode
+          }),
         });
         if (!tokenRes.ok) {
           const text = await tokenRes.text().catch(() => "");

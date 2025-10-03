@@ -8,6 +8,12 @@ type CartItemType = {
   sku: string;
   quantity: number;
   designId?: string;
+  designInfo?: {
+    tempPreviewImageUrl?: string;
+    designUnitPrice?: number;
+    designUnitPercentagePrice?: number;
+    name?: string;
+  } | null;
   product?: {
     code: string;
     name: string;
@@ -26,7 +32,34 @@ export default function CartPage() {
       const response = await fetch('/api/cart');
       if (response.ok) {
         const items = await response.json();
-        setCartItems(items);
+
+        // Enrich items with design information
+        const enrichedItems = await Promise.all(
+          items.map(async (item: CartItemType) => {
+            if (item.designId) {
+              try {
+                const designResponse = await fetch(`/api/zakeke/designs/${item.designId}`);
+                if (designResponse.ok) {
+                  const designData = await designResponse.json();
+                  return {
+                    ...item,
+                    designInfo: {
+                      tempPreviewImageUrl: designData.tempPreviewImageUrl,
+                      designUnitPrice: designData.designUnitPrice || 0,
+                      designUnitPercentagePrice: designData.designUnitPercentagePrice || 0,
+                      name: designData.name,
+                    }
+                  };
+                }
+              } catch (error) {
+                console.warn('Error fetching design info for:', item.designId, error);
+              }
+            }
+            return item;
+          })
+        );
+
+        setCartItems(enrichedItems);
       }
     } catch (error) {
       console.error('Error fetching cart items:', error);
@@ -79,6 +112,17 @@ export default function CartPage() {
           />
         ))}
       </div>
+
+      {cartItems.length > 0 && (
+        <div className="mt-8 flex justify-end">
+          <Link
+            href="/checkout"
+            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+          >
+            Proceder al checkout
+          </Link>
+        </div>
+      )}
     </main>
   );
 }
@@ -99,15 +143,21 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
   };
 
   const product = item.product;
+  const designInfo = item.designInfo;
   const basePrice = product?.base_price || 0;
-  const total = basePrice * (item.quantity || 1);
+  const designUnitPrice = designInfo?.designUnitPrice || 0;
+  const designPercentagePrice = designInfo?.designUnitPercentagePrice || 0;
+
+  // Calculate final unit price: base + design unit price + percentage of base
+  const finalUnitPrice = basePrice + designUnitPrice + (basePrice * designPercentagePrice / 100);
+  const total = finalUnitPrice * (item.quantity || 1);
 
   return (
     <div className="border rounded p-4 flex gap-4 items-center">
-      {product?.image_url ? (
+      {designInfo?.tempPreviewImageUrl || product?.image_url ? (
         <img
-          src={product.image_url}
-          alt={product.name || item.sku}
+          src={designInfo?.tempPreviewImageUrl || product?.image_url}
+          alt={designInfo?.name || product?.name || item.sku}
           className="w-[120px] h-[120px] object-cover rounded"
         />
       ) : (
@@ -117,6 +167,9 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
       )}
       <div className="flex-1">
         <h2 className="text-lg font-medium">{product?.name || item.sku}</h2>
+        {designInfo?.name && (
+          <p className="text-sm text-gray-600">Diseño: {designInfo.name}</p>
+        )}
         <p className="text-sm opacity-80">Cantidad: {item.quantity}</p>
         <p className="text-sm">
           Precio base: {new Intl.NumberFormat("es-CO", {
@@ -124,7 +177,14 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
             currency: product?.currency || "COP",
           }).format(basePrice)}
         </p>
-        <p className="text-sm">Diseño (unit.): $ 0,00</p>
+        {designInfo && (designUnitPrice > 0 || designPercentagePrice > 0) && (
+          <p className="text-sm">
+            Diseño (unit.): {new Intl.NumberFormat("es-CO", {
+              style: "currency",
+              currency: product?.currency || "COP",
+            }).format(designUnitPrice + (basePrice * designPercentagePrice / 100))}
+          </p>
+        )}
         <p className="font-semibold mt-1">
           Total: {new Intl.NumberFormat("es-CO", {
             style: "currency",
@@ -132,14 +192,14 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
           }).format(total)}
         </p>
         <div className="mt-2 flex gap-2">
-          <Link
-            href={`/customizer?productid=${encodeURIComponent(item.sku)}&quantity=${item.quantity || 1}${
-              item.designId ? `&designid=${encodeURIComponent(item.designId)}` : ""
-            }&from=cart`}
-            className="px-3 py-2 bg-black text-white rounded"
-          >
-            Editar diseño
-          </Link>
+          {item.designId && (
+            <Link
+              href={`/customizer?productid=${encodeURIComponent(item.sku)}&quantity=${item.quantity || 1}&designid=${encodeURIComponent(item.designId)}&from=cart`}
+              className="px-3 py-2 bg-black text-white rounded"
+            >
+              Editar diseño
+            </Link>
+          )}
           <button
             onClick={handleRemove}
             disabled={isRemoving}

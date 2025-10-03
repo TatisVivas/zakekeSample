@@ -1,4 +1,3 @@
-import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -110,8 +109,6 @@ export default function MarketplacePage() {
 
   return (
     <main className="min-h-screen">
-      <Navbar />
-      
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-chart-1/5 to-chart-2/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">

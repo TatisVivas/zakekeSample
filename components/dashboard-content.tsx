@@ -2,10 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { 
-  Plus, 
-  Play, 
-  ChevronRight, 
+import {
+  Plus,
+  Play,
+  ChevronRight,
   Heart,
   ShoppingBag,
   Crown,
@@ -15,8 +15,28 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { createClient } from "@/utils/supabase/client"
 
 export function DashboardContent() {
+  const [userName, setUserName] = useState<string>("Usuario")
+  const supabase = createClient()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser()
+
+      if (!error && user?.email) {
+        // Extraer nombre del email (antes del @) o usar el nombre completo si existe
+        const name = user.user_metadata?.name ||
+                    user.email?.split('@')[0] ||
+                    "Usuario"
+        const finalName = name.charAt(0).toUpperCase() + name.slice(1)
+        setUserName(finalName)
+      }
+    }
+    getUser()
+  }, [supabase])
   const categories = [
     {
       id: "marroquineria",
@@ -74,7 +94,7 @@ export function DashboardContent() {
       name: "Cartera Ejecutiva Premium",
       category: "Marroquinería",
       price: "$89.99",
-      image: "/placeholder.jpg",
+      image: "/products/small.png",
       trending: true
     },
     {
@@ -82,7 +102,7 @@ export function DashboardContent() {
       name: "Camiseta Vintage Retro",
       category: "Camisetas",
       price: "$24.99",
-      image: "/premium-t-shirt-mockup-with-custom-design.jpg",
+      image: "/totebag-sample.jpg",
       trending: false
     },
     {
@@ -90,7 +110,7 @@ export function DashboardContent() {
       name: "Gorra Snapback Urban",
       category: "Gorras",
       price: "$34.99",
-      image: "/placeholder.jpg",
+      image: "/products/small.png",
       trending: true
     },
     {
@@ -98,7 +118,7 @@ export function DashboardContent() {
       name: "Termo Eco-Friendly",
       category: "Sostenibles",
       price: "$45.99",
-      image: "/placeholder.jpg",
+      image: "/products/small.png",
       trending: false
     }
   ]
@@ -108,19 +128,19 @@ export function DashboardContent() {
       id: 1,
       name: "Billetera Minimalista",
       category: "Marroquinería",
-      image: "/placeholder.jpg"
+      image: "/products/small.png"
     },
     {
       id: 2,
       name: "Pañoleta Seda Premium",
-      category: "Pañoletas", 
-      image: "/placeholder.jpg"
+      category: "Pañoletas",
+      image: "/products/small.png"
     },
     {
       id: 3,
       name: "Botella Bambú",
       category: "Sostenibles",
-      image: "/placeholder.jpg"
+      image: "/products/small.png"
     }
   ]
 
@@ -130,7 +150,7 @@ export function DashboardContent() {
       <div className="p-6 pb-4">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="font-serif text-4xl font-bold text-foreground mb-2">¡Hola, Juan! 👋</h1>
+            <h1 className="font-serif text-4xl font-bold text-foreground mb-2">¡Hola, {userName}! 👋</h1>
             <p className="text-muted-foreground text-lg">¿Qué vas a crear hoy?</p>
           </div>
           <Link href="/mainpage/create-design">

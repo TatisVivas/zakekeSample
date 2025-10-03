@@ -19,6 +19,8 @@ export type CartItem = {
   sku: string;
   quantity: number;
   design_id?: string;
+  user_id?: string;
+  visitor_id?: string;
 };
 
 export type ProductOptionValue = {
@@ -169,26 +171,49 @@ export async function upsertProductOptionsByCode(code: string, options: ProductO
   return options;
 }
 
+// Helper function to get user ID or visitor ID
+async function getUserOrVisitorId(): Promise<{ id: string; isUser: boolean }> {
+  const supabase = await getSupabase();
+
+  // Check if user is authenticated (more secure than getSession)
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (!error && user?.id) {
+    return { id: user.id, isUser: true };
+  }
+
+  // Fallback to visitor ID
+  const visitor = await getOrCreateVisitor();
+  return { id: visitor, isUser: false };
+}
+
 export async function clearCart() {
   const supabase = await getSupabase();
-  const visitor = await getOrCreateVisitor();
-  const { error } = await supabase.from("cart_items").delete().eq("visitor_id", visitor);
+  const { id, isUser } = await getUserOrVisitorId();
+  const column = isUser ? "user_id" : "visitor_id";
+  const { error } = await supabase.from("cart_items").delete().eq(column, id);
   if (error) throw new Error(`Error clearing cart: ${error.message}`);
 }
 
 export async function getCartItems(): Promise<CartItem[]> {
   const supabase = await getSupabase();
-  const visitor = await getOrCreateVisitor();
-  const { data, error } = await supabase.from("cart_items").select("*").eq("visitor_id", visitor);
+  const { id, isUser } = await getUserOrVisitorId();
+  const column = isUser ? "user_id" : "visitor_id";
+  const { data, error } = await supabase.from("cart_items").select("*").eq(column, id);
   if (error) throw new Error(`Error getting cart items: ${error.message}`);
   return data as CartItem[];
 }
 
 export async function addCartItem(item: Omit<CartItem, "id"> & { id?: string }): Promise<CartItem> {
   const supabase = await getSupabase();
-  const visitor = await getOrCreateVisitor();
+  const { id, isUser } = await getUserOrVisitorId();
 
-  const toInsert = { ...item, visitor_id: visitor };
+  const toInsert = {
+    ...item,
+    ...(isUser
+      ? { user_id: id, visitor_id: null }
+      : { visitor_id: id, user_id: null }
+    )
+  };
   const { data, error } = await supabase.from("cart_items").insert(toInsert).select().single();
 
   if (error) throw new Error(`Error adding cart item: ${error.message}`);
@@ -197,12 +222,10 @@ export async function addCartItem(item: Omit<CartItem, "id"> & { id?: string }):
 
 export async function updateCartItem(id: string, updates: Partial<CartItem>): Promise<CartItem | undefined> {
   const supabase = await getSupabase();
-  const visitor = await getOrCreateVisitor();
   const { data, error } = await supabase
     .from("cart_items")
     .update(updates)
     .eq("id", id)
-    .eq("visitor_id", visitor)
     .select()
     .single();
   if (error) throw new Error(`Error updating cart item ${id}: ${error.message}`);
@@ -220,8 +243,48 @@ export async function upsertCartItemBySku(sku: string, updates: Partial<CartItem
 
 export async function removeCartItem(id: string): Promise<boolean> {
   const supabase = await getSupabase();
-  const visitor = await getOrCreateVisitor();
-  const { error } = await supabase.from("cart_items").delete().eq("id", id).eq("visitor_id", visitor);
+  const { error } = await supabase.from("cart_items").delete().eq("id", id);
   if (error) throw new Error(`Error removing cart item ${id}: ${error.message}`);
   return true;
+}
+
+// Function to migrate cart items from visitor to user when logging in
+export async function migrateCartToUser(userId: string) {
+  const supabase = await getSupabase();
+  const visitor = await getOrCreateVisitor();
+
+  // Get visitor cart items
+  const { data: visitorItems, error: selectError } = await supabase
+    .from("cart_items")
+    .select("*")
+    .eq("visitor_id", visitor)
+    .is("user_id", null);
+
+  if (selectError) {
+    console.warn("Error getting visitor cart items:", selectError);
+    return;
+  }
+
+  if (!visitorItems || visitorItems.length === 0) return;
+
+  // Delete existing user cart items with same sku to avoid duplicates
+  const skus = visitorItems.map(item => item.sku);
+  await supabase
+    .from("cart_items")
+    .delete()
+    .eq("user_id", userId)
+    .in("sku", skus);
+
+  // Update visitor items to belong to user (don't set visitor_id to null, just change ownership)
+  const { error: updateError } = await supabase
+    .from("cart_items")
+    .update({ user_id: userId })
+    .eq("visitor_id", visitor)
+    .is("user_id", null);
+
+  if (updateError) {
+    console.warn("Error migrating cart items:", updateError);
+  } else {
+    console.log(`Migrated ${visitorItems.length} cart items from visitor to user`);
+  }
 }

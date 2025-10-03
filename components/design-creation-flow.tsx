@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Upload, 
-  Plus, 
-  Minus, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  Plus,
+  Minus,
   ShoppingCart,
   Palette,
   Shirt,
@@ -18,7 +18,6 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { getProducts } from "@/lib/db"
 
 interface DesignConfig {
   product: string
@@ -33,11 +32,29 @@ export function DesignCreationFlow() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [showSampleModal, setShowSampleModal] = useState(false)
-  
-  // Get products from database
-  const { items: dbProducts } = getProducts()
+  const [dbProducts, setDbProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Load products from API
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const response = await fetch('/api/products')
+        if (response.ok) {
+          const products = await response.json()
+          setDbProducts(products)
+        }
+      } catch (error) {
+        console.error('Error loading products:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProducts()
+  }, [])
+
   const firstProduct = dbProducts[0]
-  
+
   const [config, setConfig] = useState<DesignConfig>({
     product: firstProduct?.code || "4424614346797",
     size: "M", // Comentado temporalmente
@@ -47,6 +64,23 @@ export function DesignCreationFlow() {
     basePrice: firstProduct?.basePrice || 35000
   })
 
+  // Ensure config.basePrice is never undefined
+  const safeConfig = {
+    ...config,
+    basePrice: config.basePrice || 0
+  }
+
+  // Update config when products load
+  useEffect(() => {
+    if (firstProduct) {
+      setConfig(prev => ({
+        ...prev,
+        product: firstProduct.code,
+        basePrice: firstProduct.basePrice
+      }))
+    }
+  }, [firstProduct])
+
   const steps = [
     { id: 1, title: "Producto", icon: Shirt },
     { id: 2, title: "Configuración", icon: Calculator },
@@ -54,12 +88,14 @@ export function DesignCreationFlow() {
   ]
 
   // Use products from database
-  const productOptions = dbProducts.map(product => ({
-    id: product.code,
-    name: product.name,
-    price: product.basePrice,
-    image: product.imageUrl || "/products/small.png"
-  }))
+  const productOptions = dbProducts
+    .filter(product => product && product.code && product.name) // Filter out invalid products
+    .map(product => ({
+      id: product.code || 'unknown',
+      name: product.name || 'Producto sin nombre',
+      price: product.basePrice || product.price || 0,
+      image: product.imageUrl || product.image || "/products/small.png"
+    }))
 
   const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"]
   const colorOptions = [
@@ -70,7 +106,7 @@ export function DesignCreationFlow() {
   ]
 
   const calculatePrice = () => {
-    let price = config.basePrice * config.quantity
+    let price = safeConfig.basePrice * config.quantity
     
     // Volume discounts
     if (config.quantity >= 10) price *= 0.9  // 10% discount
@@ -104,6 +140,27 @@ export function DesignCreationFlow() {
       // color: config.color // Comentado temporalmente
     })
     router.push(`/customizer?${params.toString()}`)
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-accent/5 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg">Cargando productos...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (dbProducts.length === 0) {
+    return (
+      <div className="p-6 bg-accent/5 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg text-muted-foreground">No hay productos disponibles</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -159,7 +216,7 @@ export function DesignCreationFlow() {
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
                             config.product === product.id ? 'border-secondary bg-secondary/5' : 'border-border hover:border-secondary/50'
                           }`}
-                          onClick={() => setConfig({...config, product: product.id, basePrice: product.price})}
+                          onClick={() => setConfig({...config, product: product.id, basePrice: product.price || 0})}
                         >
                           <Image
                             src={product.image}
@@ -169,7 +226,7 @@ export function DesignCreationFlow() {
                             className="w-full h-32 object-contain rounded mb-2 bg-muted/20"
                           />
                           <h4 className="font-medium">{product.name}</h4>
-                          <p className="text-secondary font-semibold">${product.price.toLocaleString()}</p>
+                          <p className="text-secondary font-semibold">${(product.price || 0).toLocaleString()}</p>
                         </div>
                       ))}
                     </div>
@@ -333,12 +390,12 @@ export function DesignCreationFlow() {
                       </div>
                       <div className="flex justify-between">
                         <span>Precio base:</span>
-                        <span>${(config.basePrice * config.quantity).toLocaleString()}</span>
+                        <span>${(safeConfig.basePrice * config.quantity).toLocaleString()}</span>
                       </div>
                       {config.quantity >= 10 && (
                         <div className="flex justify-between text-green-600">
                           <span>Descuento por volumen:</span>
-                          <span>-${((config.basePrice * config.quantity) - Math.round(config.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
+                          <span>-${((safeConfig.basePrice * config.quantity) - Math.round(safeConfig.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
                         </div>
                       )}
                       <hr />
@@ -387,7 +444,7 @@ export function DesignCreationFlow() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Precio unitario:</span>
-                    <span>${config.basePrice.toLocaleString()}</span>
+                    <span>${safeConfig.basePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Cantidad:</span>
@@ -395,12 +452,12 @@ export function DesignCreationFlow() {
                   </div>
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>${(config.basePrice * config.quantity).toLocaleString()}</span>
+                    <span>${(safeConfig.basePrice * config.quantity).toLocaleString()}</span>
                   </div>
                   {config.quantity >= 10 && (
                     <div className="flex justify-between text-green-600">
                       <span>Descuento:</span>
-                      <span>-${((config.basePrice * config.quantity) - Math.round(config.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
+                      <span>-${((safeConfig.basePrice * config.quantity) - Math.round(safeConfig.basePrice * config.quantity * (config.quantity >= 50 ? 0.8 : config.quantity >= 25 ? 0.85 : 0.9))).toLocaleString()}</span>
                     </div>
                   )}
                 </div>
