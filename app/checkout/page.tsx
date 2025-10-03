@@ -39,12 +39,19 @@ export default function CheckoutPage() {
   };
 
   const handleCheckout = async () => {
-    if (cartItems.length === 0) return;
+    console.log('🛒 [CHECKOUT] Starting checkout process...');
+    console.log('🛒 [CHECKOUT] Cart items:', cartItems.length);
+
+    if (cartItems.length === 0) {
+      console.log('🛒 [CHECKOUT] No items in cart, aborting');
+      return;
+    }
 
     setProcessing(true);
     setError('');
 
     try {
+      console.log('🛒 [CHECKOUT] Getting user session for customercode...');
       // Get user session for customercode
       let customercode: string | undefined;
       try {
@@ -52,51 +59,73 @@ export default function CheckoutPage() {
         if (sessionResponse.ok) {
           const sessionData = await sessionResponse.json();
           customercode = sessionData.user?.id;
+          console.log('🛒 [CHECKOUT] Customer code obtained:', customercode);
+        } else {
+          console.log('🛒 [CHECKOUT] Failed to get session, status:', sessionResponse.status);
         }
       } catch (err) {
-        console.warn('Could not get user session:', err);
+        console.warn('🛒 [CHECKOUT] Could not get user session:', err);
+      }
+
+      // Filter items with designs
+      const itemsWithDesigns = cartItems.filter(item => item.designId);
+      console.log('🛒 [CHECKOUT] Items with designs:', itemsWithDesigns.length);
+
+      if (itemsWithDesigns.length === 0) {
+        console.log('🛒 [CHECKOUT] No items with designs found');
+        setError('No tienes productos personalizados en el carrito');
+        setProcessing(false);
+        return;
       }
 
       // Create order payload for Zakeke
       const orderCode = `ORDER-${Date.now()}`;
+      const total = cartItems.reduce((sum, item) => sum + (item.product?.base_price || 0) * item.quantity, 0);
+
       const orderPayload = {
         orderCode,
         orderDate: new Date().toISOString(),
         sessionID: 'session-' + Date.now(),
-        total: cartItems.reduce((sum, item) => sum + (item.product?.base_price || 0) * item.quantity, 0),
-        details: cartItems
-          .filter(item => item.designId)
-          .map(item => ({
-            orderDetailCode: item.id,
-            sku: item.sku,
-            designID: item.designId,
-            modelUnitPrice: item.product?.base_price || 0,
-            designUnitPrice: 0, // Will be calculated from design info
-            quantity: item.quantity,
-            designModificationID: undefined // Only needed for bulk orders
-          }))
+        total,
+        details: itemsWithDesigns.map(item => ({
+          orderDetailCode: item.id,
+          sku: item.sku,
+          designID: item.designId,
+          modelUnitPrice: item.product?.base_price || 0,
+          designUnitPrice: 0, // Will be calculated from design info
+          quantity: item.quantity,
+          designModificationID: undefined // Only needed for bulk orders
+        }))
       };
 
-      console.log('Registering order with Zakeke:', orderPayload);
+      console.log('🛒 [CHECKOUT] Order payload:', JSON.stringify(orderPayload, null, 2));
 
       // Register order with Zakeke
+      console.log('🛒 [CHECKOUT] Calling Zakeke API...');
       const registerResponse = await fetch('/api/zakeke/register-order', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(orderPayload),
       });
 
+      console.log('🛒 [CHECKOUT] Zakeke response status:', registerResponse.status);
+
       if (!registerResponse.ok) {
-        throw new Error('Error al registrar el pedido en Zakeke');
+        const errorText = await registerResponse.text();
+        console.error('🛒 [CHECKOUT] Zakeke error response:', errorText);
+        throw new Error(`Error al registrar el pedido en Zakeke: ${registerResponse.status}`);
       }
 
       const registerResult = await registerResponse.json();
-      console.log('Order registered successfully:', registerResult);
+      console.log('🛒 [CHECKOUT] Zakeke success response:', registerResult);
 
       // Clear cart
-      await fetch('/api/cart/clear', { method: 'POST' });
+      console.log('🛒 [CHECKOUT] Clearing cart...');
+      const clearResponse = await fetch('/api/cart/clear', { method: 'POST' });
+      console.log('🛒 [CHECKOUT] Cart clear response:', clearResponse.status);
 
       // Redirect to success page
+      console.log('🛒 [CHECKOUT] Redirecting to success page...');
       router.push(`/checkout/success?order=${orderCode}`);
 
     } catch (err) {

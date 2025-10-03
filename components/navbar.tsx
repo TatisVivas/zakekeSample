@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 export function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [cartMigrated, setCartMigrated] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -23,13 +24,16 @@ export function Navbar() {
       })
       .then(data => {
         setUser(data.user)
-        // Migrate cart if user is logged in
-        if (data.user?.id) {
+        // Migrate cart if user is logged in and cart hasn't been migrated yet
+        if (data.user?.id && !cartMigrated) {
+          console.log('🛒 [NAVBAR] Migrating cart for user:', data.user.id)
+          setCartMigrated(true)
           fetch('/api/cart/migrate', {
             method: 'POST',
             headers: { 'content-type': 'application/json' }
           }).catch(error => {
             console.warn('Error migrating cart:', error)
+            setCartMigrated(false) // Reset on error
           })
         }
       })
@@ -50,14 +54,22 @@ export function Navbar() {
             if (response.ok) {
               const data = await response.json()
               setUser(data.user)
-              // Migrate cart for new logins
-              if (event === 'SIGNED_IN' && data.user?.id) {
+              // Migrate cart for new logins (if not already migrated)
+              if (event === 'SIGNED_IN' && data.user?.id && !cartMigrated) {
+                console.log('🛒 [NAVBAR] Migrating cart on sign in for user:', data.user.id)
+                setCartMigrated(true)
                 fetch('/api/cart/migrate', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' }
                 }).catch(error => {
                   console.warn('Error migrating cart:', error)
+                  setCartMigrated(false)
                 })
+              }
+
+              // Reset migration flag on sign out
+              if (event === 'SIGNED_OUT') {
+                setCartMigrated(false)
               }
             } else {
               setUser(null)

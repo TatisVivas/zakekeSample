@@ -4,6 +4,8 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
+  console.log('🛒 [MIGRATE] Cart migration API called')
+
   try {
     // Get authenticated user (more secure)
     const cookieStore = await cookies()
@@ -33,15 +35,20 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error || !user?.id) {
+      console.log('🛒 [MIGRATE] No authenticated user found:', error?.message)
       return Response.json({ error: 'No authenticated user' }, { status: 401 })
     }
+
+    console.log('🛒 [MIGRATE] Migrating cart for user:', user.id)
 
     // Migrate cart
     await migrateCartToUser(user.id)
 
+    console.log('🛒 [MIGRATE] Cart migration completed successfully')
+
     return Response.json({ success: true })
   } catch (error) {
-    console.error('Error migrating cart:', error)
+    console.error('🛒 [MIGRATE] Error migrating cart:', error)
     return Response.json({ error: 'Failed to migrate cart' }, { status: 500 })
   }
 }
