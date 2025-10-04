@@ -39,10 +39,6 @@ export async function POST(req: NextRequest) {
       throw new Error("Failed to obtain access token");
     }
 
-    if (!payload.compositionDetails) {
-      payload.compositionDetails = [];
-      console.log(`[API_REGISTER_ORDER][${requestId}] Added empty compositionDetails`);
-    }
 
     console.log(`[API_REGISTER_ORDER][${requestId}] Final payload:`, JSON.stringify(payload, null, 2));
 

@@ -132,6 +132,9 @@ export function Navbar() {
                   <Link href="/mainpage" className="text-primary-foreground hover:text-white transition-colors">
                     Tienda
                   </Link>
+                  <Link href="/seller-designs" className="text-primary-foreground hover:text-white transition-colors">
+                    Mis Diseños
+                  </Link>
                   <Link href="/cart" className="text-primary-foreground hover:text-white transition-colors">
                     Carrito
                   </Link>

@@ -1,7 +1,10 @@
 'use client';
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+// Add status to track the fetching state of design info
+type DesignInfoStatus = 'idle' | 'loading' | 'success' | 'error';
 
 type CartItemType = {
   id: string;
@@ -14,6 +17,7 @@ type CartItemType = {
     designUnitPercentagePrice?: number;
     name?: string;
   } | null;
+  designInfoStatus: DesignInfoStatus;
   product?: {
     code: string;
     name: string;
@@ -23,58 +27,81 @@ type CartItemType = {
   } | null;
 };
 
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3000;
+
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchCartItems = async () => {
-    const requestId = crypto.randomUUID();
-    console.log(`[CART_PAGE][${requestId}] Fetching cart items`);
+  const pollDesignInfo = useCallback(async (itemId: string, designId: string, quantity: number, attempt = 1) => {
+    console.log(`[POLL_DESIGN][${designId}] Attempt ${attempt}/${MAX_RETRIES}`);
     try {
-      const response = await fetch('/api/cart');
-      if (response.ok) {
-        const items = await response.json();
-        console.log(`[CART_PAGE][${requestId}] Fetched ${items.length} items`);
+      const designResponse = await fetch(`/api/zakeke/designs/${designId}?quantity=${quantity}`);
 
-        const enrichedItems = await Promise.all(
-          items.map(async (item: CartItemType) => {
-            if (item.design_id) {
-              try {
-                const designResponse = await fetch(`/api/zakeke/designs/${item.design_id}?quantity=${item.quantity}`);
-                if (designResponse.ok) {
-                  const designData = await designResponse.json();
-                  console.log(`[CART_PAGE][${requestId}] Design info for ${item.design_id}:`, designData);
-                  return {
-                    ...item,
-                    designInfo: {
-                      tempPreviewImageUrl: designData.tempPreviewImageUrl,
-                      designUnitPrice: designData.designUnitPrice || 0,
-                      designUnitPercentagePrice: designData.designUnitPercentagePrice || 0,
-                      name: designData.name,
-                    }
-                  };
+      if (designResponse.ok) { // Status 200
+        const designData = await designResponse.json();
+        console.log(`[POLL_DESIGN][${designId}] Success!`, designData);
+        setCartItems(prevItems => prevItems.map(item =>
+          item.id === itemId
+            ? {
+                ...item,
+                designInfoStatus: 'success',
+                designInfo: {
+                  tempPreviewImageUrl: designData.tempPreviewImageUrl,
+                  designUnitPrice: designData.designUnitPrice || 0,
+                  designUnitPercentagePrice: designData.designUnitPercentagePrice || 0,
+                  name: designData.name,
                 }
-              } catch (error) {
-                console.warn(`[CART_PAGE][${requestId}] Error fetching design ${item.design_id}:`, error);
               }
-            }
-            return item;
-          })
-        );
-
-        setCartItems(enrichedItems);
-        console.log(`[CART_PAGE][${requestId}] Cart enriched and set`);
+            : item
+        ));
+      } else if (designResponse.status === 202) { // "Processing" status from our API
+        if (attempt < MAX_RETRIES) {
+          console.log(`[POLL_DESIGN][${designId}] Still processing, retrying in ${RETRY_DELAY_MS}ms`);
+          setTimeout(() => pollDesignInfo(itemId, designId, quantity, attempt + 1), RETRY_DELAY_MS);
+        } else {
+          throw new Error(`Failed to fetch design info for ${designId} after ${MAX_RETRIES} attempts.`);
+        }
+      } else {
+        throw new Error(`Unexpected status code: ${designResponse.status}`);
       }
     } catch (error) {
-      console.error(`[CART_PAGE][${requestId}] Error fetching cart:`, error);
-    } finally {
-      setLoading(false);
+      console.error(`[POLL_DESIGN][${designId}] Failed permanently:`, error);
+      setCartItems(prevItems => prevItems.map(item =>
+        item.id === itemId ? { ...item, designInfoStatus: 'error' } : item
+      ));
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchCartItems();
-  }, []);
+    const fetchInitialCart = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/cart');
+        if (response.ok) {
+          const items = await response.json();
+          const initialItems = items.map((item: any) => ({
+            ...item,
+            designInfoStatus: item.design_id ? 'loading' : 'idle',
+          }));
+          setCartItems(initialItems);
+
+          // Trigger polling for items that need it
+          initialItems.forEach((item: CartItemType) => {
+            if (item.design_id && item.designInfoStatus === 'loading') {
+              pollDesignInfo(item.id, item.design_id, item.quantity);
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`[CART_PAGE] Error fetching initial cart:`, error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInitialCart();
+  }, [pollDesignInfo]);
 
   const handleRemoveItem = async (id: string) => {
     const requestId = crypto.randomUUID();
@@ -115,6 +142,7 @@ export default function CartPage() {
             key={item.id}
             item={item}
             onRemove={handleRemoveItem}
+            onRetry={() => item.design_id && pollDesignInfo(item.id, item.design_id, item.quantity)}
           />
         ))}
       </div>
@@ -133,19 +161,13 @@ export default function CartPage() {
   );
 }
 
-function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id: string) => void }) {
+function CartItemSimple({ item, onRemove, onRetry }: { item: CartItemType; onRemove: (id: string) => void, onRetry: () => void }) {
   const [isRemoving, setIsRemoving] = useState(false);
 
   const handleRemove = async () => {
     setIsRemoving(true);
-    try {
-      await onRemove(item.id);
-    } catch (error) {
-      console.error("Error removing item:", error);
-      alert("Error al eliminar el item del carrito");
-    } finally {
-      setIsRemoving(false);
-    }
+    await onRemove(item.id);
+    // No need for finally block as the component will be unmounted
   };
 
   const product = item.product;
@@ -157,19 +179,44 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
   const finalUnitPrice = basePrice + designUnitPrice + (basePrice * designPercentagePrice / 100);
   const total = finalUnitPrice * (item.quantity || 1);
 
+  const renderImage = () => {
+    switch(item.designInfoStatus){
+      case 'loading':
+        return (
+          <div className="w-[120px] h-[120px] bg-gray-100 flex flex-col items-center justify-center rounded text-center text-xs p-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mb-2"></div>
+            Generando previsualización...
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="w-[120px] h-[120px] bg-red-50 border border-red-200 flex flex-col items-center justify-center rounded text-center text-xs p-2">
+            <p className="text-red-700">Error al cargar la imagen.</p>
+            <button onClick={onRetry} className="mt-2 px-2 py-1 bg-red-600 text-white rounded text-xs">Reintentar</button>
+          </div>
+        );
+      case 'success':
+        return (
+          <img
+            src={designInfo?.tempPreviewImageUrl || product?.image_url}
+            alt={designInfo?.name || product?.name || item.sku}
+            className="w-[120px] h-[120px] object-cover rounded"
+          />
+        );
+      default: // idle or fallback
+        return (
+          product?.image_url ?
+          <img src={product.image_url} alt={product.name} className="w-[120px] h-[120px] object-cover rounded" /> :
+          <div className="w-[120px] h-[120px] bg-gray-100 flex items-center justify-center rounded">
+            Sin imagen
+          </div>
+        );
+    }
+  }
+
   return (
     <div className="border rounded p-4 flex gap-4 items-center">
-      {designInfo?.tempPreviewImageUrl || product?.image_url ? (
-        <img
-          src={designInfo?.tempPreviewImageUrl || product?.image_url}
-          alt={designInfo?.name || product?.name || item.sku}
-          className="w-[120px] h-[120px] object-cover rounded"
-        />
-      ) : (
-        <div className="w-[120px] h-[120px] bg-gray-100 flex items-center justify-center rounded">
-          Sin imagen
-        </div>
-      )}
+      {renderImage()}
       <div className="flex-1">
         <h2 className="text-lg font-medium">{product?.name || item.sku}</h2>
         {designInfo?.name && (
@@ -182,9 +229,9 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
             currency: product?.currency || "COP",
           }).format(basePrice)}
         </p>
-        {designInfo && (designUnitPrice > 0 || designPercentagePrice > 0) && (
+        {item.designInfoStatus === 'success' && designInfo && (designUnitPrice > 0 || designPercentagePrice > 0) && (
           <p className="text-sm">
-            Diseño (unit.): {new Intl.NumberFormat("es-CO", {
+            Costo diseño (unit.): {new Intl.NumberFormat("es-CO", {
               style: "currency",
               currency: product?.currency || "COP",
             }).format(designUnitPrice + (basePrice * designPercentagePrice / 100))}
@@ -200,7 +247,7 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
           {item.design_id && (
             <Link
               href={`/customizer?productid=${encodeURIComponent(item.sku)}&quantity=${item.quantity || 1}&designid=${encodeURIComponent(item.design_id)}&from=cart`}
-              className="px-3 py-2 bg-black text-white rounded"
+              className="px-3 py-2 bg-black text-white rounded text-sm"
             >
               Editar diseño
             </Link>
@@ -208,7 +255,7 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
           <button
             onClick={handleRemove}
             disabled={isRemoving}
-            className="px-3 py-2 bg-red-500 text-white rounded disabled:opacity-50"
+            className="px-3 py-2 bg-red-500 text-white rounded disabled:opacity-50 text-sm"
           >
             {isRemoving ? "Eliminando..." : "Eliminar"}
           </button>

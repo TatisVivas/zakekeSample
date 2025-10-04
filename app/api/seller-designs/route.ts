@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClientToken, getDesignInfo } from "@/lib/zakeke";
+import { getClientToken, getSellerDesigns } from "@/lib/zakeke";
 import { readVisitor } from "@/lib/visitor";
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -7,20 +7,11 @@ import { cookies } from 'next/headers'
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ designId: string }> }
-) {
+export async function GET() {
   const requestId = crypto.randomUUID();
-  console.log(`[API_DESIGN][${requestId}] Starting GET /api/zakeke/designs/{designId}`);
+  console.log(`[API_SELLER_DESIGNS][${requestId}] Starting GET /api/seller-designs`);
 
   try {
-    const { designId } = await context.params;
-    const { searchParams } = new URL(req.url);
-    const quantity = parseInt(searchParams.get('quantity') || '1', 10);
-
-    console.log(`[API_DESIGN][${requestId}] Design ID: ${designId}, Quantity: ${quantity}`);
-
     const visitorcode = await readVisitor();
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -45,30 +36,37 @@ export async function GET(
       }
     );
     const { data: { user } } = await supabase.auth.getUser();
-    const customercode = user?.id;
+
+    if (!user?.id) {
+      console.log(`[API_SELLER_DESIGNS][${requestId}] No authenticated user`);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const customercode = user.id;
+    console.log(`[API_SELLER_DESIGNS][${requestId}] Customer code: ${customercode}`);
 
     const { access_token } = await getClientToken({
       accessType: "S2S",
       visitorcode,
       customercode,
     });
-    console.log(`[API_DESIGN][${requestId}] Token acquired`);
+    console.log(`[API_SELLER_DESIGNS][${requestId}] Token acquired`);
 
-    const info = await getDesignInfo(designId, quantity, access_token);
-    console.log(`[API_DESIGN][${requestId}] Design info fetched`);
+    const designs = await getSellerDesigns(customercode, access_token);
+    console.log(`[API_SELLER_DESIGNS][${requestId}] Seller designs fetched`);
 
-    return NextResponse.json(info);
+    return NextResponse.json(designs);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Failed to fetch design";
+    const msg = e instanceof Error ? e.message : "Failed to fetch seller designs";
 
     // If Zakeke returns a 5xx error, it's likely processing. Tell the client to retry.
     if (/500|502|503|504/.test(msg)) {
-      console.warn(`[API_DESIGN][${requestId}] Zakeke returned a server error, likely processing. Msg: ${msg}`);
+      console.warn(`[API_SELLER_DESIGNS][${requestId}] Zakeke returned a server error, likely processing. Msg: ${msg}`);
       return NextResponse.json({ status: 'processing' }, { status: 202 });
     }
 
     const status = /401/.test(String(msg)) ? 401 : 500;
-    console.error(`[API_DESIGN][${requestId}] Error: ${msg}`);
+    console.error(`[API_SELLER_DESIGNS][${requestId}] Error: ${msg}`);
     return NextResponse.json({ error: msg }, { status });
   }
 }

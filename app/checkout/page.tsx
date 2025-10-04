@@ -85,8 +85,7 @@ export default function CheckoutPage() {
           designUnitPrice: 0,
           quantity: item.quantity,
           designModificationID: undefined
-        })),
-        compositionDetails: []
+        }))
       };
 
       console.log(`[CHECKOUT][${requestId}] Order payload:`, JSON.stringify(orderPayload, null, 2));

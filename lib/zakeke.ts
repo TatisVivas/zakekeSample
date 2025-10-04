@@ -158,13 +158,14 @@ export async function getClientToken(args: {
 
 export async function getDesignInfo(designId: string, quantity: number, token: string) {
   const requestId = crypto.randomUUID();
-  console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] Fetching for ${designId} with quantity ${quantity}`);
+  console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] Fetching for ${designId} with quantity ${quantity} using v2`);
   try {
-    const response = await fetchWithHandling(`https://api.zakeke.com/v3/designs/${encodeURIComponent(designId)}/${quantity}`, {
+    const response = await fetchWithHandling(`https://api.zakeke.com/v2/designs/${encodeURIComponent(designId)}/${quantity}`, {
       method: "GET",
       headers: { authorization: `Bearer ${token}` },
     });
-    console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] Success`);
+    // Optional: Log for differences
+    console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] v2 Response:`, response);
     return response;
   } catch (error) {
     console.error(`[ZAKEKE][DESIGN_INFO][${requestId}] Error:`, error);
@@ -176,11 +177,6 @@ export async function registerOrder(payload: unknown, token: string) {
   const requestId = crypto.randomUUID();
   console.log(`[ZAKEKE][REGISTER_ORDER][${requestId}] Starting with payload:`, JSON.stringify(payload, null, 2));
   try {
-    // Ensure compositionDetails is present
-    if (!('compositionDetails' in (payload as any))) {
-      (payload as any).compositionDetails = [];
-    }
-    console.log(`[ZAKEKE][REGISTER_ORDER][${requestId}] Adjusted payload:`, JSON.stringify(payload, null, 2));
 
     const response = await fetchWithHandling("https://api.zakeke.com/v2/order", {
       method: "POST",
@@ -210,6 +206,22 @@ export async function getPrintZip(designId: string, token: string) {
     return response;
   } catch (error) {
     console.error(`[ZAKEKE][PRINT_ZIP][${requestId}] Error:`, error);
+    throw error;
+  }
+}
+
+export async function getSellerDesigns(customerCode: string, token: string) {
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][SELLER_DESIGNS][${requestId}] Fetching designs for customer ${customerCode}`);
+  try {
+    const response = await fetchWithHandling(`https://api.zakeke.com/v3/designs/seller?customerCode=${encodeURIComponent(customerCode)}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    console.log(`[ZAKEKE][SELLER_DESIGNS][${requestId}] Success:`, JSON.stringify(response, null, 2));
+    return response;
+  } catch (error) {
+    console.error(`[ZAKEKE][SELLER_DESIGNS][${requestId}] Error:`, error);
     throw error;
   }
 }
