@@ -38,6 +38,14 @@ async function createTables() {
       visitor_id TEXT,
       user_id TEXT
     );`,
+    `CREATE TABLE IF NOT EXISTS orders (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      code TEXT NOT NULL UNIQUE,
+      user_id UUID NOT NULL,
+      items JSONB NOT NULL,
+      total NUMERIC NOT NULL,
+      order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );`,
     `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`
   ];
 
@@ -97,6 +105,21 @@ async function createTables() {
     console.log("⚠️ Error verificando tabla cart_items:", err.message);
   }
 
+  // Verificar tabla orders
+  try {
+    const { data: ordersData, error: ordersError } = await supabase.from('orders').select('id, code, user_id, items, total, order_date').limit(1);
+    if (ordersError && ordersError.code === 'PGRST116') {
+      console.log("❌ Tabla 'orders' no existe");
+    } else if (ordersError) {
+      console.log("❌ Tabla 'orders' existe pero tiene esquema incorrecto:", ordersError.message);
+      console.log("💡 Necesitas recrear la tabla 'orders' en Supabase Dashboard");
+    } else {
+      console.log("✅ Tabla 'orders' existe y tiene esquema correcto");
+    }
+  } catch (err) {
+    console.log("⚠️ Error verificando tabla orders:", err.message);
+  }
+
   console.log("\n📋 INSTRUCCIONES PARA CREAR/RECREAR TABLAS:");
   console.log("   1. Ve a https://supabase.com/dashboard/project/[tu-project]/sql");
   console.log("   2. Crea una nueva consulta SQL");
@@ -109,6 +132,7 @@ async function createTables() {
   });
 
   console.log("⚠️ IMPORTANTE: Si las tablas ya existen, elimínalas primero con:");
+  console.log("   DROP TABLE IF EXISTS orders;");
   console.log("   DROP TABLE IF EXISTS cart_items;");
   console.log("   DROP TABLE IF EXISTS product_options;");
   console.log("   DROP TABLE IF EXISTS products;");

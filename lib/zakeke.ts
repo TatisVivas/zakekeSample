@@ -6,31 +6,59 @@ type TokenResponse = {
   token_type: string;
 };
 
-async function fetchWithHandling(url: string, options: RequestInit) {
+async function fetchWithHandling(url: string, options: RequestInit, retryCount = 0): Promise<any> {
   const method = (options.method || "GET").toUpperCase();
+  const requestId = crypto.randomUUID();
   const started = Date.now();
-  const res = await fetch(url, options);
-  const elapsed = Date.now() - started;
 
-  const contentType = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    let text = "";
-    try {
-      text = await res.text();
-    } catch {
-      text = "";
-    }
-    console.error(
-      `[ZAKEKE][HTTP] ${method} ${url} -> ${res.status} in ${elapsed}ms`,
-      text ? `body(${Math.min(text.length, 800)} chars)` : "(no body)"
-    );
-    const status = res.status;
-    throw new Error(`Zakeke API error ${status}: ${text || res.statusText}`);
+  // Log request details (mask sensitive headers)
+  const safeHeaders = options.headers ? { ...options.headers } : {};
+  if ('authorization' in safeHeaders && safeHeaders.authorization) {
+    safeHeaders.authorization = '[REDACTED]';
   }
+  const safeBody = options.body ? '[BODY PRESENT]' : undefined;
+  console.log(`[ZAKEKE][HTTP][${requestId}] Request: ${method} ${url}`, JSON.stringify({
+    headers: safeHeaders,
+    body: safeBody,
+  }));
 
-  console.log(`[ZAKEKE][HTTP] ${method} ${url} -> ${res.status} in ${elapsed}ms`);
-  if (contentType.includes("application/json")) return res.json();
-  return res.text();
+  try {
+    const res = await fetch(url, options);
+    const elapsed = Date.now() - started;
+    const contentType = res.headers.get("content-type") || "";
+    let bodyText = "";
+    try {
+      bodyText = await res.text();
+    } catch {}
+
+    // Log response details
+    console.log(`[ZAKEKE][HTTP][${requestId}] Response: ${res.status} in ${elapsed}ms`, JSON.stringify({
+      contentType,
+      bodySnippet: bodyText.slice(0, 200),
+    }));
+
+    if (!res.ok) {
+      if (res.status === 500 && retryCount < 3) {
+        console.warn(`[ZAKEKE][HTTP][${requestId}] Retrying 500 error (${retryCount + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return fetchWithHandling(url, options, retryCount + 1);
+      }
+      throw new Error(`Zakeke API error ${res.status}: ${bodyText || res.statusText}`);
+    }
+
+    if (contentType.includes("application/json")) {
+      try {
+        return JSON.parse(bodyText);
+      } catch (e) {
+        console.error(`[ZAKEKE][HTTP][${requestId}] JSON parse error:`, e);
+        throw new Error("Invalid JSON response");
+      }
+    }
+    return bodyText;
+  } catch (error) {
+    console.error(`[ZAKEKE][HTTP][${requestId}] Error:`, error);
+    throw error;
+  }
 }
 
 const TOKEN_URL = process.env.ZAKEKE_TOKEN_URL || "https://api.zakeke.com/token";
@@ -40,22 +68,11 @@ export async function getClientToken(args: {
   visitorcode?: string;
   customercode?: string;
 }) {
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][TOKEN][${requestId}] Starting token request`, JSON.stringify(args));
+
   const clientId = process.env.ZAKEKE_CLIENT_ID;
   const clientSecret = process.env.ZAKEKE_CLIENT_SECRET;
-
-  const hasClientId = Boolean(clientId);
-  const hasClientSecret = Boolean(clientSecret);
-
-  console.log(
-    "[ZAKEKE][TOKEN] building request",
-    JSON.stringify({
-      accessType: args?.accessType || "C2S",
-      hasVisitor: Boolean(args?.visitorcode),
-      hasCustomer: Boolean(args?.customercode),
-      env: { hasClientId, hasClientSecret },
-      tokenUrl: TOKEN_URL,
-    })
-  );
 
   if (!clientId || !clientSecret) {
     throw new Error("Missing ZAKEKE client credentials");
@@ -65,7 +82,6 @@ export async function getClientToken(args: {
   baseBody.set("grant_type", "client_credentials");
   if (args.accessType) baseBody.set("access_type", args.accessType);
   if (args.customercode) baseBody.set("customercode", args.customercode);
-  // visitorcode will be conditionally added depending on attempt
 
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
@@ -76,40 +92,29 @@ export async function getClientToken(args: {
     token_type?: string;
   };
 
-  // Helper to build headers
   const commonHeaders = {
     accept: "application/json",
     "accept-language": "en-US",
     "content-type": "application/x-www-form-urlencoded",
   } as const;
 
-  // Attempt helper
   const attempt = async (label: string, useBasicAuth: boolean, includeVisitor: boolean) => {
     const body = new URLSearchParams(baseBody.toString());
     if (includeVisitor && args.visitorcode) body.set("visitorcode", args.visitorcode);
 
-    const headers: Record<string, string> = {
-      ...commonHeaders,
-    };
+    const headers: Record<string, string> = { ...commonHeaders };
     if (useBasicAuth) {
       headers["authorization"] = `Basic ${basic}`;
     } else {
-      // Send credentials in body
       body.set("client_id", clientId);
       body.set("client_secret", clientSecret);
     }
 
-    console.log(
-      "[ZAKEKE][TOKEN] attempt",
-      JSON.stringify({
-        label,
-        useBasicAuth,
-        includeVisitor: Boolean(includeVisitor && args.visitorcode),
-        hasClientId,
-        hasClientSecret,
-        bodyKeys: Array.from(body.keys()),
-      })
-    );
+    console.log(`[ZAKEKE][TOKEN][${requestId}] Attempt ${label}`, JSON.stringify({
+      useBasicAuth,
+      includeVisitor: Boolean(includeVisitor && args.visitorcode),
+      bodyKeys: Array.from(body.keys()),
+    }));
 
     const raw = await fetchWithHandling(TOKEN_URL, {
       method: "POST",
@@ -129,7 +134,6 @@ export async function getClientToken(args: {
     return token;
   };
 
-  // Try multiple strategies: Basic/body and with/without visitorcode
   const strategies: Array<[string, boolean, boolean]> = [
     ["basic+visitor", true, true],
     ["basic", true, false],
@@ -141,69 +145,92 @@ export async function getClientToken(args: {
   for (const [label, useBasic, includeVisitor] of strategies) {
     try {
       const token = await attempt(label, useBasic, includeVisitor);
-      console.log(
-        "[ZAKEKE][TOKEN] success",
-        JSON.stringify({ label, token_type: token.token_type, expires_in: token.expires_in })
-      );
+      console.log(`[ZAKEKE][TOKEN][${requestId}] Success with ${label}`);
       return token;
     } catch (err) {
       lastError = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[ZAKEKE][TOKEN] attempt failed", JSON.stringify({ label, message: msg }));
-      // Continue to next strategy
+      console.error(`[ZAKEKE][TOKEN][${requestId}] Attempt ${label} failed:`, err);
     }
   }
 
-  // If we got here, all attempts failed
-  const finalMsg = lastError instanceof Error ? lastError.message : String(lastError);
-  console.error("[ZAKEKE][TOKEN] all attempts failed", JSON.stringify({ message: finalMsg }));
-  throw lastError instanceof Error ? lastError : new Error(finalMsg || "Token request failed");
+  throw lastError instanceof Error ? lastError : new Error("All token attempts failed");
 }
 
-export async function getDesignInfo(designId: string, token: string) {
-  return fetchWithHandling(`https://api.zakeke.com/v3/designs/${encodeURIComponent(designId)}`, {
-    method: "GET",
-    headers: { authorization: `Bearer ${token}` },
-  });
+export async function getDesignInfo(designId: string, quantity: number, token: string) {
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] Fetching for ${designId} with quantity ${quantity}`);
+  try {
+    const response = await fetchWithHandling(`https://api.zakeke.com/v3/designs/${encodeURIComponent(designId)}/${quantity}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    console.log(`[ZAKEKE][DESIGN_INFO][${requestId}] Success`);
+    return response;
+  } catch (error) {
+    console.error(`[ZAKEKE][DESIGN_INFO][${requestId}] Error:`, error);
+    throw error;
+  }
 }
 
 export async function registerOrder(payload: unknown, token: string) {
-  return fetchWithHandling("https://api.zakeke.com/v2/order", {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  });
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][REGISTER_ORDER][${requestId}] Starting with payload:`, JSON.stringify(payload, null, 2));
+  try {
+    // Ensure compositionDetails is present
+    if (!('compositionDetails' in (payload as any))) {
+      (payload as any).compositionDetails = [];
+    }
+    console.log(`[ZAKEKE][REGISTER_ORDER][${requestId}] Adjusted payload:`, JSON.stringify(payload, null, 2));
+
+    const response = await fetchWithHandling("https://api.zakeke.com/v2/order", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    console.log(`[ZAKEKE][REGISTER_ORDER][${requestId}] Success:`, JSON.stringify(response, null, 2));
+    return response;
+  } catch (error) {
+    console.error(`[ZAKEKE][REGISTER_ORDER][${requestId}] Error:`, error);
+    throw error;
+  }
 }
 
 export async function getPrintZip(designId: string, token: string) {
-  return fetchWithHandling(
-    `https://api.zakeke.com/v1/designs/${encodeURIComponent(designId)}/outputfiles/zip`,
-    {
-      method: "GET",
-      headers: { authorization: `Bearer ${token}` },
-    }
-  );
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][PRINT_ZIP][${requestId}] Fetching for ${designId}`);
+  try {
+    const response = await fetchWithHandling(
+      `https://api.zakeke.com/v1/designs/${encodeURIComponent(designId)}/outputfiles/zip`,
+      {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      }
+    );
+    console.log(`[ZAKEKE][PRINT_ZIP][${requestId}] Success:`, JSON.stringify(response, null, 2));
+    return response;
+  } catch (error) {
+    console.error(`[ZAKEKE][PRINT_ZIP][${requestId}] Error:`, error);
+    throw error;
+  }
 }
 
-/**
- * Validates if a model code exists in Zakeke for the given seller
- * This prevents 404 errors when opening the customizer
- */
 export async function validateModelCode(modelCode: string, token: string): Promise<boolean> {
+  const requestId = crypto.randomUUID();
+  console.log(`[ZAKEKE][VALIDATE_MODEL][${requestId}] Validating ${modelCode}`);
   try {
     const sellerId = process.env.ZAKEKE_SELLER_ID || "288274";
-    const response = await fetchWithHandling(
+    await fetchWithHandling(
       `https://api.zakeke.com/v3/products/${encodeURIComponent(modelCode)}?seller=${sellerId}`,
       {
         method: "GET",
         headers: { authorization: `Bearer ${token}` },
       }
     );
-    console.log(`[ZAKEKE][VALIDATION] Model code ${modelCode} exists for seller ${sellerId}`);
+    console.log(`[ZAKEKE][VALIDATE_MODEL][${requestId}] Valid`);
     return true;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[ZAKEKE][VALIDATION] Model code ${modelCode} validation failed:`, errorMsg);
+    console.error(`[ZAKEKE][VALIDATE_MODEL][${requestId}] Failed:`, errorMsg);
     return false;
   }
 }

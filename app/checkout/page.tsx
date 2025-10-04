@@ -11,6 +11,8 @@ type CartItem = {
   design_id?: string;
   product?: {
     base_price: number;
+    name: string;
+    currency: string;
   };
 };
 
@@ -26,10 +28,13 @@ export default function CheckoutPage() {
   }, []);
 
   const fetchCartItems = async () => {
+    const requestId = crypto.randomUUID();
+    console.log(`[CHECKOUT][${requestId}] Fetching cart items`);
     try {
       const response = await fetch('/api/cart');
       if (response.ok) {
         const items = await response.json();
+        console.log(`[CHECKOUT][${requestId}] Fetched ${items.length} items`);
         setCartItems(items);
       } else {
         setError('Error al cargar el carrito');
@@ -42,11 +47,11 @@ export default function CheckoutPage() {
   };
 
   const handleCheckout = async () => {
-    console.log('🛒 [CHECKOUT] Starting checkout process...');
-    console.log('🛒 [CHECKOUT] Cart items:', cartItems.length);
+    const requestId = crypto.randomUUID();
+    console.log(`[CHECKOUT][${requestId}] Starting checkout process with ${cartItems.length} items`);
 
     if (cartItems.length === 0) {
-      console.log('🛒 [CHECKOUT] No items in cart, aborting');
+      console.log(`[CHECKOUT][${requestId}] No items, aborting`);
       return;
     }
 
@@ -54,34 +59,16 @@ export default function CheckoutPage() {
     setError('');
 
     try {
-      console.log('🛒 [CHECKOUT] Getting user session for customercode...');
-      // Get user session for customercode
-      let customercode: string | undefined;
-      try {
-        const sessionResponse = await fetch('/api/auth/session');
-        if (sessionResponse.ok) {
-          const sessionData = await sessionResponse.json();
-          customercode = sessionData.user?.id;
-          console.log('🛒 [CHECKOUT] Customer code obtained:', customercode);
-        } else {
-          console.log('🛒 [CHECKOUT] Failed to get session, status:', sessionResponse.status);
-        }
-      } catch (err) {
-        console.warn('🛒 [CHECKOUT] Could not get user session:', err);
-      }
-
-      // Filter items with designs
       const itemsWithDesigns = cartItems.filter(item => item.design_id);
-      console.log('🛒 [CHECKOUT] Items with designs:', itemsWithDesigns.length);
+      console.log(`[CHECKOUT][${requestId}] Items with designs: ${itemsWithDesigns.length}`);
 
       if (itemsWithDesigns.length === 0) {
-        console.log('🛒 [CHECKOUT] No items with designs found');
+        console.log(`[CHECKOUT][${requestId}] No customized items`);
         setError('No tienes productos personalizados en el carrito');
         setProcessing(false);
         return;
       }
 
-      // Create order payload for Zakeke
       const orderCode = `ORDER-${Date.now()}`;
       const total = cartItems.reduce((sum, item) => sum + (item.product?.base_price || 0) * item.quantity, 0);
 
@@ -95,42 +82,42 @@ export default function CheckoutPage() {
           sku: item.sku,
           designID: item.design_id,
           modelUnitPrice: item.product?.base_price || 0,
-          designUnitPrice: 0, // Will be calculated from design info
+          designUnitPrice: 0,
           quantity: item.quantity,
-          designModificationID: undefined // Only needed for bulk orders
-        }))
+          designModificationID: undefined
+        })),
+        compositionDetails: []
       };
 
-      console.log('🛒 [CHECKOUT] Order payload:', JSON.stringify(orderPayload, null, 2));
+      console.log(`[CHECKOUT][${requestId}] Order payload:`, JSON.stringify(orderPayload, null, 2));
 
-      // Register order with Zakeke
-      console.log('🛒 [CHECKOUT] Calling Zakeke API...');
       const registerResponse = await fetch('/api/zakeke/register-order', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(orderPayload),
       });
 
-      console.log('🛒 [CHECKOUT] Zakeke response status:', registerResponse.status);
+      console.log(`[CHECKOUT][${requestId}] Zakeke response status: ${registerResponse.status}`);
 
       if (!registerResponse.ok) {
-        const errorText = await registerResponse.text();
-        console.error('🛒 [CHECKOUT] Zakeke error response:', errorText);
-        throw new Error(`Error al registrar el pedido en Zakeke: ${registerResponse.status}`);
+        const errorData = await registerResponse.json().catch(() => ({}));
+        const errorMsg = errorData.error || 'Unknown error';
+        throw new Error(`Zakeke error: ${errorMsg}`);
       }
 
       const registerResult = await registerResponse.json();
-      console.log('🛒 [CHECKOUT] Zakeke success response:', registerResult);
+      console.log(`[CHECKOUT][${requestId}] Zakeke registration success:`, JSON.stringify(registerResult, null, 2));
 
-      // Save order to Supabase
-      console.log('🛒 [CHECKOUT] Saving order to Supabase...');
       const saveOrderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           code: orderCode,
           items: cartItems.map(item => ({
-            sku: item.sku,
+            code: item.id,
+            productSku: item.sku,
+            productName: item.product?.name || 'Unknown',
+            thumbnail: '', // Add if available
             quantity: item.quantity,
             designId: item.design_id
           })),
@@ -140,21 +127,22 @@ export default function CheckoutPage() {
       });
 
       if (!saveOrderResponse.ok) {
-        throw new Error('Failed to save order to database');
+        const errorData = await saveOrderResponse.json();
+        throw new Error(errorData.error || 'Failed to save order');
       }
 
-      // Clear cart
-      console.log('🛒 [CHECKOUT] Clearing cart...');
-      const clearResponse = await fetch('/api/cart/clear', { method: 'POST' });
-      console.log('🛒 [CHECKOUT] Cart clear response:', clearResponse.status);
+      console.log(`[CHECKOUT][${requestId}] Order saved to Supabase`);
 
-      // Redirect to success page
-      console.log('🛒 [CHECKOUT] Redirecting to success page...');
+      const clearResponse = await fetch('/api/cart/clear', { method: 'POST' });
+      console.log(`[CHECKOUT][${requestId}] Cart clear status: ${clearResponse.status}`);
+
+      console.log(`[CHECKOUT][${requestId}] Redirecting to success`);
       router.push(`/checkout/success?order=${orderCode}`);
 
     } catch (err) {
-      console.error('Checkout error:', err);
-      setError(err instanceof Error ? err.message : 'Error en el checkout');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error(`[CHECKOUT][${requestId}] Error: ${msg}`);
+      setError(msg);
     } finally {
       setProcessing(false);
     }
@@ -197,7 +185,7 @@ export default function CheckoutPage() {
             {cartItems.map((item) => (
               <div key={item.id} className="flex justify-between items-center border-b pb-2">
                 <div>
-                  <p className="font-medium">{item.sku}</p>
+                  <p className="font-medium">{item.product?.name || item.sku}</p>
                   <p className="text-sm text-gray-600">
                     Cantidad: {item.quantity}
                     {item.design_id && <span className="ml-2 text-green-600">(Personalizado)</span>}

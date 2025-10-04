@@ -54,13 +54,18 @@ export default function OrdersPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.url) {
-          // Open download in new tab
-          window.open(data.url, '_blank');
+          const link = document.createElement('a');
+          link.href = data.url;
+          link.download = `print-files-${orderCode}-${designId}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         } else {
           alert('Archivos de impresión no disponibles aún');
         }
       } else {
-        alert('Error al obtener archivos de impresión');
+        const errorData = await response.json();
+        alert(errorData.error || 'Error al obtener archivos de impresión');
       }
     } catch (error) {
       console.error('Error downloading print files:', error);
@@ -142,7 +147,7 @@ export default function OrdersPage() {
                       alt={item.productName}
                       className="w-16 h-16 object-cover rounded"
                       onError={(e) => {
-                        e.currentTarget.src = '/products/small.png';
+                        (e.target as HTMLImageElement).src = '/products/small.png';
                       }}
                     />
                     <div className="flex-1">
@@ -160,7 +165,7 @@ export default function OrdersPage() {
                           onClick={() => downloadPrintFiles(item.designId!, order.code)}
                           className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
                         >
-                          Descargar archivos
+                          Descargar ZIP (PDFs e imágenes)
                         </button>
                         <span className="text-xs text-gray-500 text-center">
                           {item.printFilesStatus === 'ready' ? 'Listo' : 'Procesando...'}

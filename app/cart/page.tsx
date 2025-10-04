@@ -28,19 +28,22 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchCartItems = async () => {
+    const requestId = crypto.randomUUID();
+    console.log(`[CART_PAGE][${requestId}] Fetching cart items`);
     try {
       const response = await fetch('/api/cart');
       if (response.ok) {
         const items = await response.json();
+        console.log(`[CART_PAGE][${requestId}] Fetched ${items.length} items`);
 
-        // Enrich items with design information
         const enrichedItems = await Promise.all(
           items.map(async (item: CartItemType) => {
             if (item.design_id) {
               try {
-                const designResponse = await fetch(`/api/zakeke/designs/${item.design_id}`);
+                const designResponse = await fetch(`/api/zakeke/designs/${item.design_id}?quantity=${item.quantity}`);
                 if (designResponse.ok) {
                   const designData = await designResponse.json();
+                  console.log(`[CART_PAGE][${requestId}] Design info for ${item.design_id}:`, designData);
                   return {
                     ...item,
                     designInfo: {
@@ -52,7 +55,7 @@ export default function CartPage() {
                   };
                 }
               } catch (error) {
-                console.warn('Error fetching design info for:', item.design_id, error);
+                console.warn(`[CART_PAGE][${requestId}] Error fetching design ${item.design_id}:`, error);
               }
             }
             return item;
@@ -60,9 +63,10 @@ export default function CartPage() {
         );
 
         setCartItems(enrichedItems);
+        console.log(`[CART_PAGE][${requestId}] Cart enriched and set`);
       }
     } catch (error) {
-      console.error('Error fetching cart items:', error);
+      console.error(`[CART_PAGE][${requestId}] Error fetching cart:`, error);
     } finally {
       setLoading(false);
     }
@@ -73,22 +77,22 @@ export default function CartPage() {
   }, []);
 
   const handleRemoveItem = async (id: string) => {
+    const requestId = crypto.randomUUID();
+    console.log(`[CART_PAGE][${requestId}] Removing item ${id}`);
     try {
       const response = await fetch(`/api/cart?id=${id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        // Actualizar el estado local removiendo el item
         setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+        console.log(`[CART_PAGE][${requestId}] Item ${id} removed`);
       } else {
         throw new Error('Failed to remove item');
       }
     } catch (error) {
-      console.error('Error removing item:', error);
+      console.error(`[CART_PAGE][${requestId}] Error removing item:`, error);
       alert("Error al eliminar el item del carrito");
-    } finally {
-      setIsRemoving(false);
     }
   };
 
@@ -150,7 +154,6 @@ function CartItemSimple({ item, onRemove }: { item: CartItemType; onRemove: (id:
   const designUnitPrice = designInfo?.designUnitPrice || 0;
   const designPercentagePrice = designInfo?.designUnitPercentagePrice || 0;
 
-  // Calculate final unit price: base + design unit price + percentage of base
   const finalUnitPrice = basePrice + designUnitPrice + (basePrice * designPercentagePrice / 100);
   const total = finalUnitPrice * (item.quantity || 1);
 

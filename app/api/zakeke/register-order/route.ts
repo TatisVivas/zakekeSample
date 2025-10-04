@@ -1,69 +1,59 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createClient } from "@/utils/supabase/server";
 import { getClientToken, registerOrder } from "@/lib/zakeke";
+import { readVisitor } from "@/lib/visitor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
-  const startAt = Date.now();
+  console.log(`[API_REGISTER_ORDER][${requestId}] Starting POST /api/zakeke/register-order`);
+
   try {
-    const payload: unknown = await req.json();
-    console.log(`[ZAKEKE][ORDER][${requestId}] register order start`);
+    const payload: any = await req.json();
+    console.log(`[API_REGISTER_ORDER][${requestId}] Incoming payload:`, JSON.stringify(payload, null, 2));
 
-    // Get user session to obtain customercode
-    let customercode: string | undefined;
-    try {
-      const cookieStore = await cookies();
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll()
-            },
-            setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
-              try {
-                cookiesToSet.forEach(({ name, value, options }) =>
-                  cookieStore.set(name, value, options)
-                )
-              } catch {
-                // The `setAll` method was called from a Server Component.
-                // This can be ignored if you have middleware refreshing
-                // user sessions.
-              }
-            },
-          },
-        }
-      );
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: { user } } = await supabase.auth.getUser();
-      customercode = user?.id;
-    } catch (err) {
-      console.warn(`[ZAKEKE][ORDER][${requestId}] Could not get user session:`, err);
+    if (!user?.id) {
+      console.warn(`[API_REGISTER_ORDER][${requestId}] No authenticated user`);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { access_token } = await getClientToken({
+    const visitor = await readVisitor();
+    console.log(`[API_REGISTER_ORDER][${requestId}] User: ${user.id}, Visitor: ${visitor}`);
+
+    const tokenResponse = await getClientToken({
       accessType: "S2S",
-      customercode
+      customercode: user.id,
+      visitorcode: visitor
     });
+    console.log(`[API_REGISTER_ORDER][${requestId}] Token response:`, JSON.stringify(tokenResponse, null, 2));
+    const { access_token } = tokenResponse;
+
+    if (!access_token) {
+      throw new Error("Failed to obtain access token");
+    }
+
+    if (!payload.compositionDetails) {
+      payload.compositionDetails = [];
+      console.log(`[API_REGISTER_ORDER][${requestId}] Added empty compositionDetails`);
+    }
+
+    console.log(`[API_REGISTER_ORDER][${requestId}] Final payload:`, JSON.stringify(payload, null, 2));
 
     const res = await registerOrder(payload, access_token);
-    console.log(
-      `[ZAKEKE][ORDER][${requestId}] success`,
-      JSON.stringify({ tookMs: Date.now() - startAt })
-    );
-    return Response.json(res);
+    console.log(`[API_REGISTER_ORDER][${requestId}] Zakeke response:`, JSON.stringify(res, null, 2));
+
+    return NextResponse.json(res);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to register order";
     const status = /401/.test(String(msg)) ? 401 : 500;
-    console.error(
-      `[ZAKEKE][ORDER][${requestId}] error`,
-      JSON.stringify({ tookMs: Date.now() - startAt, status, message: msg })
-    );
-    return new Response(msg, { status });
+    console.error(`[API_REGISTER_ORDER][${requestId}] Error: ${msg}`);
+    return NextResponse.json({ error: msg }, { status });
   }
 }
