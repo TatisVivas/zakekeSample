@@ -61,7 +61,7 @@ export function DesignCreationFlow() {
     color: "blanco", // Comentado temporalmente
     design: null,
     quantity: 1,
-    basePrice: firstProduct?.basePrice || 35000
+    basePrice: firstProduct?.base_price || 35000
   })
 
   // Ensure config.basePrice is never undefined
@@ -76,7 +76,7 @@ export function DesignCreationFlow() {
       setConfig(prev => ({
         ...prev,
         product: firstProduct.code,
-        basePrice: firstProduct.basePrice
+        basePrice: firstProduct.base_price
       }))
     }
   }, [firstProduct])
@@ -93,8 +93,8 @@ export function DesignCreationFlow() {
     .map(product => ({
       id: product.code || 'unknown',
       name: product.name || 'Producto sin nombre',
-      price: product.basePrice || product.price || 0,
-      image: product.imageUrl || product.image || "/products/small.png"
+      price: product.base_price ?? product.price ?? 0,
+      image: product.image_url || product.image || "/products/small.png"
     }))
 
   const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"]
